@@ -1,0 +1,288 @@
+import Phaser from "phaser";
+import { areas, WORLD_SIZE } from "./data/areas.js";
+import { resourceSpawnsByArea } from "./data/resources.js";
+import { snakes } from "./data/snakes.js";
+import { createAbility } from "./game/abilities.js";
+import { AreaManager } from "./game/AreaManager.js";
+import { AreaRenderer } from "./game/AreaRenderer.js";
+import { ResourceManager } from "./game/ResourceManager.js";
+import { SanctuaryRenderer } from "./game/SanctuaryRenderer.js";
+import { SnakeRenderer } from "./game/SnakeRenderer.js";
+
+export class GameScene extends Phaser.Scene {
+  constructor() {
+    super("world");
+  }
+
+  init(data) {
+    this.save = data.save;
+    this.eventsOut = data.eventsOut;
+    this.abilityReadyAt = 0;
+    this.lastPositionSentAt = 0;
+    this.lastPrompt = "";
+    this.isPaused = false;
+  }
+
+  preload() {
+    Object.values(snakes).forEach((snake) => {
+      if (!this.textures.exists(snake.spriteKey)) this.load.image(snake.spriteKey, snake.sprite);
+      if (!this.textures.exists(snake.evolvedSpriteKey)) {
+        this.load.image(snake.evolvedSpriteKey, snake.evolvedSprite);
+      }
+    });
+  }
+
+  create() {
+    this.physics.world.setBounds(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
+    this.cameras.main.setBounds(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
+    this.cameras.main.setBackgroundColor("#789f72");
+
+    const requestedArea = areas[this.save.currentArea] || areas.sanctuary;
+    const initialAreaId = requestedArea.guardian && requestedArea.guardian !== this.save.selectedSnake
+      ? "sanctuary"
+      : requestedArea.id;
+
+    // GRASP Creator/Controller: the scene coordinates focused area, resource, and rendering objects.
+    this.areaManager = new AreaManager(areas, initialAreaId);
+    this.areaRenderer = new AreaRenderer(this);
+    this.obstacles = this.physics.add.staticGroup();
+    this.createPlayer();
+    this.physics.add.collider(this.player, this.obstacles);
+    this.renderArea(initialAreaId, false);
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keys = this.input.keyboard.addKeys("W,A,S,D,SPACE,E");
+    this.input.keyboard.on("keydown-SPACE", () => this.useAbility());
+    this.input.keyboard.on("keydown-E", () => this.interact());
+    this.input.keyboard.on("keydown-ESC", () => this.eventsOut({ type: "pause" }));
+    this.input.keyboard.on("keydown-P", () => this.eventsOut({ type: "pause" }));
+    this.input.on("pointerdown", (pointer) => {
+      if (pointer.rightButtonDown()) return;
+      this.target = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    });
+
+    this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
+    this.eventsOut({ type: "ready" });
+    this.emitArea();
+  }
+
+  createPlayer() {
+    this.player = this.add.container(550, 430).setDepth(8);
+    this.physics.add.existing(this.player);
+    this.player.body.setCircle(25, -25, -25).setCollideWorldBounds(true);
+    this.createSnakeRenderer();
+  }
+
+  createSnakeRenderer() {
+    this.snakeRenderer?.destroy();
+    this.player.removeAll(false);
+    const snake = snakes[this.save.selectedSnake];
+    const evolved = this.save.snakeEvolutionStatus[this.save.selectedSnake];
+    this.snakeRenderer = new SnakeRenderer(this, this.player, snake, this.save.selectedSnake, evolved);
+  }
+
+  renderArea(areaId, transition = true) {
+    const area = areas[areaId];
+    this.target = null;
+    this.resourceManager?.destroy();
+    this.resourceManager = null;
+    this.sanctuaryRenderer?.destroy();
+    this.sanctuaryRenderer = null;
+    this.obstacles.clear(true, true);
+
+    const obstacles = this.areaRenderer.render(area);
+    obstacles.forEach((obstacle) => {
+      const body = this.add.rectangle(obstacle.x, obstacle.y, obstacle.w, obstacle.h, 0x000000, 0);
+      this.physics.add.existing(body, true);
+      this.obstacles.add(body);
+    });
+
+    if (area.id === "sanctuary") {
+      this.sanctuaryRenderer = new SanctuaryRenderer(this, 120);
+      this.sanctuaryRenderer.render(this.save.sanctuaryUpgrades);
+    } else {
+      this.resourceManager = new ResourceManager(
+        this,
+        resourceSpawnsByArea[area.id] || [],
+        this.save.collectedResourceIds,
+        (item) => this.eventsOut({ type: "pickup", item })
+      );
+      this.resourceManager.create();
+    }
+
+    const savedPosition = this.save.positionsByArea?.[area.id];
+    const spawn = transition ? area.spawn : (savedPosition || area.spawn);
+    this.player.setPosition(spawn.x, spawn.y);
+    this.player.body.setVelocity(0, 0);
+    this.cameras.main.setBackgroundColor(`#${area.colors.ground.toString(16).padStart(6, "0")}`);
+    if (transition) this.cameras.main.fadeIn(260, 255, 245, 210);
+    this.setPrompt("");
+  }
+
+  enterArea(areaId) {
+    const result = this.areaManager.enter(areaId, this.save.selectedSnake);
+    if (!result.ok) {
+      this.eventsOut({ type: "warning", message: result.message });
+      this.cameras.main.shake(170, 0.004);
+      return false;
+    }
+    this.cameras.main.fadeOut(170, 34, 49, 40);
+    this.time.delayedCall(180, () => {
+      this.renderArea(areaId, true);
+      this.emitArea();
+    });
+    return true;
+  }
+
+  returnToSanctuary() {
+    if (this.areaManager.currentAreaId === "sanctuary") return;
+    this.enterArea("sanctuary");
+  }
+
+  interact() {
+    if (this.isPaused) return;
+    const interaction = this.areaManager.interactionNear(this.player.x, this.player.y);
+    if (!interaction) {
+      this.eventsOut({ type: "warning", message: "Move closer to a biome gate, workbench, or return portal." });
+      return;
+    }
+    if (interaction.type === "workbench") {
+      this.eventsOut({ type: "workbench" });
+      return;
+    }
+    this.enterArea(interaction.targetArea.id);
+  }
+
+  update(time) {
+    if (this.isPaused) return;
+    const snake = snakes[this.save.selectedSnake];
+    let dx = 0;
+    let dy = 0;
+    if (this.cursors.left.isDown || this.keys.A.isDown) dx -= 1;
+    if (this.cursors.right.isDown || this.keys.D.isDown) dx += 1;
+    if (this.cursors.up.isDown || this.keys.W.isDown) dy -= 1;
+    if (this.cursors.down.isDown || this.keys.S.isDown) dy += 1;
+
+    if (!dx && !dy && this.target) {
+      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.target.x, this.target.y);
+      if (distance > 10) {
+        dx = this.target.x - this.player.x;
+        dy = this.target.y - this.player.y;
+      } else {
+        this.target = null;
+      }
+    }
+
+    const velocity = new Phaser.Math.Vector2(dx, dy);
+    const moving = velocity.lengthSq() > 0;
+    if (moving) velocity.normalize().scale(snake.speed);
+    const ease = this.save.settings?.reducedMotion ? 0.35 : 0.16;
+    this.player.body.velocity.lerp(velocity, ease);
+    if (!moving && this.player.body.velocity.length() < 5) this.player.body.setVelocity(0, 0);
+    this.snakeRenderer.update(time, moving, this.player.body.velocity.x);
+    this.updatePrompt();
+
+    if (time - this.lastPositionSentAt > 700) {
+      this.lastPositionSentAt = time;
+      this.eventsOut({
+        type: "position",
+        areaId: this.areaManager.currentAreaId,
+        position: { x: Math.round(this.player.x), y: Math.round(this.player.y) }
+      });
+    }
+  }
+
+  updatePrompt() {
+    const interaction = this.areaManager.interactionNear(this.player.x, this.player.y);
+    const portalPrompt = this.areaManager.promptFor(interaction, this.save.selectedSnake);
+    const harvestPrompt = this.resourceManager?.promptNear(
+      this.player.x,
+      this.player.y,
+      this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 155 : 118,
+      this.save.selectedSnake
+    ) || "";
+    this.setPrompt(portalPrompt || harvestPrompt);
+  }
+
+  setPrompt(message) {
+    if (message === this.lastPrompt) return;
+    this.lastPrompt = message;
+    this.eventsOut({ type: "prompt", message });
+  }
+
+  useAbility() {
+    if (this.isPaused) return;
+    const now = this.time.now;
+    if (now < this.abilityReadyAt) return;
+
+    const name = this.save.selectedSnake;
+    const snake = snakes[name];
+    const evolved = this.save.snakeEvolutionStatus[name];
+    const result = createAbility(snake).use({
+      guardianName: name,
+      player: this.player,
+      resourceManager: this.resourceManager,
+      evolved,
+      worldWidth: WORLD_SIZE.width,
+      worldHeight: WORLD_SIZE.height
+    });
+
+    this.abilityReadyAt = now + (evolved ? 650 : 1050);
+    const ring = this.add.circle(this.player.x, this.player.y, 25, snake.accent, 0.25).setDepth(7);
+    this.tweens.add({ targets: ring, radius: evolved ? 165 : 125, alpha: 0, duration: 520, onComplete: () => ring.destroy() });
+
+    if (result.harvest.status === "wrong-guardian") {
+      this.eventsOut({ type: "warning", message: result.harvest.message });
+    } else if (result.harvest.status === "collected") {
+      this.eventsOut({
+        type: "ability",
+        name: snake.harvestAction || snake.ability,
+        harvested: result.harvest.item.name
+      });
+    } else {
+      this.eventsOut({ type: "ability", name: snake.ability });
+    }
+    this.updatePrompt();
+  }
+
+  emitArea() {
+    const area = this.areaManager.current();
+    this.eventsOut({ type: "area", area, storyScene: area.story });
+  }
+
+  applySave(nextSave) {
+    const snakeChanged = nextSave.selectedSnake !== this.save.selectedSnake;
+    const upgradesChanged = nextSave.sanctuaryUpgrades.length !== this.save.sanctuaryUpgrades.length;
+    const addedUpgradeId = nextSave.sanctuaryUpgrades.find(
+      (upgradeId) => !this.save.sanctuaryUpgrades.includes(upgradeId)
+    );
+    const evolutionChanged = JSON.stringify(nextSave.snakeEvolutionStatus) !== JSON.stringify(this.save.snakeEvolutionStatus);
+    this.save = nextSave;
+
+    const area = this.areaManager.current();
+    if (area.guardian && area.guardian !== this.save.selectedSnake) {
+      this.enterArea("sanctuary");
+      return;
+    }
+    if (snakeChanged || evolutionChanged) this.createSnakeRenderer();
+    if (upgradesChanged && this.areaManager.currentAreaId === "sanctuary") {
+      this.sanctuaryRenderer?.render(this.save.sanctuaryUpgrades, {
+        animate: Boolean(addedUpgradeId),
+        upgradeId: addedUpgradeId
+      });
+    }
+  }
+
+  setPaused(paused) {
+    this.isPaused = paused;
+    this.target = null;
+    this.player?.body?.setVelocity(0, 0);
+    if (paused) {
+      this.physics.world.pause();
+      this.tweens.pauseAll();
+    } else {
+      this.physics.world.resume();
+      this.tweens.resumeAll();
+    }
+  }
+}
