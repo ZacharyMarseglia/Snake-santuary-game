@@ -47,6 +47,7 @@ export function createDefaultSave(playerName = "Guardian") {
     unlockedRecipes: [...RECIPE_IDS],
     craftingStoriesSeen: [],
     completedElementQuizzes: [],
+    challengeProgress: {},
     completedQuests: [],
     questProgress: {},
     sanctuaryUpgrades: [],

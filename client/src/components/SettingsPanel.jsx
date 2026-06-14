@@ -105,7 +105,7 @@ export function SettingsPanel({ save, setSave, resetGame, hasPlayer }) {
         <strong>Controls</strong>
         <span><kbd>WASD</kbd> or arrow keys to move</span>
         <span><kbd>E</kbd> to use biome gates, the Guardian Workbench, and return portals</span>
-        <span><kbd>Space</kbd> to use an ability and harvest nearby resources</span>
+        <span><kbd>Space</kbd> to use an ability, harvest resources, and restore challenge targets</span>
         <span><kbd>Esc</kbd> or <kbd>P</kbd> to pause</span>
       </div>
       <button className="danger-button" onClick={resetGame} disabled={!hasPlayer}>Reset current adventure</button>

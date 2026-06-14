@@ -1,10 +1,12 @@
 import Phaser from "phaser";
 import { areas, WORLD_SIZE } from "./data/areas.js";
+import { challengeByAreaId } from "./data/challenges.js";
 import { resourceSpawnsByArea } from "./data/resources.js";
 import { snakes } from "./data/snakes.js";
 import { createAbility } from "./game/abilities.js";
 import { AreaManager } from "./game/AreaManager.js";
 import { AreaRenderer } from "./game/AreaRenderer.js";
+import { ChallengeRenderer } from "./game/ChallengeRenderer.js";
 import { ResourceManager } from "./game/ResourceManager.js";
 import { SanctuaryRenderer } from "./game/SanctuaryRenderer.js";
 import { SnakeRenderer } from "./game/SnakeRenderer.js";
@@ -88,6 +90,8 @@ export class GameScene extends Phaser.Scene {
     this.resourceManager = null;
     this.sanctuaryRenderer?.destroy();
     this.sanctuaryRenderer = null;
+    this.challengeRenderer?.destroy();
+    this.challengeRenderer = null;
     this.obstacles.clear(true, true);
 
     const obstacles = this.areaRenderer.render(area);
@@ -107,6 +111,11 @@ export class GameScene extends Phaser.Scene {
         (item) => this.eventsOut({ type: "pickup", item })
       );
       this.resourceManager.create();
+      const challenge = challengeByAreaId[area.id];
+      if (challenge) {
+        this.challengeRenderer = new ChallengeRenderer(this, challenge);
+        this.challengeRenderer.sync(this.save.challengeProgress?.[challenge.id]);
+      }
     }
 
     const savedPosition = this.save.positionsByArea?.[area.id];
@@ -200,7 +209,12 @@ export class GameScene extends Phaser.Scene {
       this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 155 : 118,
       this.save.selectedSnake
     ) || "";
-    this.setPrompt(portalPrompt || harvestPrompt);
+    const challengePrompt = this.challengeRenderer?.promptNear(
+      this.player.x,
+      this.player.y,
+      this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 155 : 118
+    ) || "";
+    this.setPrompt(portalPrompt || challengePrompt || harvestPrompt);
   }
 
   setPrompt(message) {
@@ -227,10 +241,16 @@ export class GameScene extends Phaser.Scene {
     }
 
     const evolved = this.save.snakeEvolutionStatus[name];
+    const abilityRadius = evolved ? 155 : 118;
+    const challengeTarget = this.challengeRenderer?.nearest(
+      this.player.x,
+      this.player.y,
+      abilityRadius
+    );
     const result = createAbility(snake).use({
       guardianName: name,
       player: this.player,
-      resourceManager: this.resourceManager,
+      resourceManager: challengeTarget ? null : this.resourceManager,
       evolved,
       worldWidth: WORLD_SIZE.width,
       worldHeight: WORLD_SIZE.height
@@ -240,7 +260,15 @@ export class GameScene extends Phaser.Scene {
     const ring = this.add.circle(this.player.x, this.player.y, 25, snake.accent, 0.25).setDepth(7);
     this.tweens.add({ targets: ring, radius: evolved ? 165 : 125, alpha: 0, duration: 520, onComplete: () => ring.destroy() });
 
-    if (result.harvest.status === "wrong-guardian") {
+    if (challengeTarget) {
+      this.challengeRenderer.animateAttempt(challengeTarget);
+      this.eventsOut({
+        type: "challenge-action",
+        challengeId: this.challengeRenderer.challenge.id,
+        targetId: challengeTarget.id,
+        ability: snake.harvestAction || snake.ability
+      });
+    } else if (result.harvest.status === "wrong-guardian") {
       this.eventsOut({ type: "warning", message: result.harvest.message });
     } else if (result.harvest.status === "collected") {
       this.eventsOut({
@@ -270,6 +298,7 @@ export class GameScene extends Phaser.Scene {
       (upgradeId) => !this.save.sanctuaryUpgrades.includes(upgradeId)
     );
     const evolutionChanged = JSON.stringify(nextSave.snakeEvolutionStatus) !== JSON.stringify(this.save.snakeEvolutionStatus);
+    const challengeProgressChanged = JSON.stringify(nextSave.challengeProgress) !== JSON.stringify(this.save.challengeProgress);
     this.save = nextSave;
 
     const area = this.areaManager.current();
@@ -283,6 +312,10 @@ export class GameScene extends Phaser.Scene {
         animate: Boolean(addedUpgradeId),
         upgradeId: addedUpgradeId
       });
+    }
+    if (challengeProgressChanged && this.challengeRenderer) {
+      const challenge = this.challengeRenderer.challenge;
+      this.challengeRenderer.sync(this.save.challengeProgress?.[challenge.id]);
     }
   }
 

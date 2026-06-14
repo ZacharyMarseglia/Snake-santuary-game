@@ -3,6 +3,7 @@ import { craftedItemNames, recipeIds } from "./data/recipes.js";
 import { snakes } from "./data/snakes.js";
 
 export { areas, areaList, WORLD_SIZE } from "./data/areas.js";
+export { challengeByAreaId, challengeById, challenges } from "./data/challenges.js";
 export { quests } from "./data/quests.js";
 export { craftedItemNames, recipeIds, recipes } from "./data/recipes.js";
 export { resourceNames as resources, resourceSpawns, resourceSpawnsByArea } from "./data/resources.js";
@@ -20,6 +21,7 @@ export function newSave(playerName = "Guardian") {
     unlockedRecipes: [...recipeIds],
     craftingStoriesSeen: [],
     completedElementQuizzes: [],
+    challengeProgress: {},
     completedQuests: [],
     sanctuaryUpgrades: [],
     storyScenesSeen: [],

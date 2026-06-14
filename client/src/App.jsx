@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PhaserGame from "./PhaserGame.jsx";
 import { newSave, quests, recipes, snakes, upgrades } from "./gameData.js";
 import { areas } from "./data/areas.js";
+import { challengeByAreaId, challengeByStoryName, challenges } from "./data/challenges.js";
 import { biomeQuizByStoryName } from "./data/education.js";
 import { GameState } from "./domain/GameState.js";
+import { ChallengeManager } from "./domain/ChallengeManager.js";
 import { CraftingManager } from "./domain/CraftingManager.js";
 import { QuestManager } from "./domain/QuestManager.js";
 import { SanctuaryManager } from "./domain/SanctuaryManager.js";
@@ -20,6 +22,7 @@ import { QuestTracker } from "./components/QuestTracker.jsx";
 import { SanctuaryPanel } from "./components/SanctuaryPanel.jsx";
 import { audioManager } from "./services/AudioManager.js";
 import { WorldMap } from "./components/WorldMap.jsx";
+import { ChallengeTracker } from "./components/ChallengeTracker.jsx";
 
 function mergeSave(value) {
   const base = newSave(value?.playerName);
@@ -37,6 +40,7 @@ function mergeSave(value) {
     unlockedRecipes: value?.unlockedRecipes || base.unlockedRecipes,
     craftingStoriesSeen: value?.craftingStoriesSeen || base.craftingStoriesSeen,
     completedElementQuizzes: value?.completedElementQuizzes || base.completedElementQuizzes,
+    challengeProgress: { ...base.challengeProgress, ...value?.challengeProgress },
     snakeEvolutionStatus: { ...base.snakeEvolutionStatus, ...value?.snakeEvolutionStatus },
     settings: { ...base.settings, ...value?.settings, ...saveService.localNarrationSettings() }
   };
@@ -46,6 +50,7 @@ const questManager = new QuestManager(quests);
 const sanctuaryManager = new SanctuaryManager(upgrades);
 const storyManager = new StoryManager();
 const craftingManager = new CraftingManager(recipes);
+const challengeManager = new ChallengeManager(challenges);
 const saveService = new SaveService(new ApiClient());
 
 export default function App() {
@@ -71,6 +76,10 @@ export default function App() {
     [save.completedQuests]
   );
   const progress = Math.min(questManager.progress(activeQuest, save), activeQuest.target.count);
+  const activeChallenge = challengeByAreaId[currentAreaId] || null;
+  const activeChallengeProgress = activeChallenge
+    ? challengeManager.progress(save, activeChallenge.id)
+    : null;
 
   const showToast = useCallback((message) => {
     setToast(message);
@@ -217,6 +226,21 @@ export default function App() {
       audioManager.play("click");
       setModal({ type: "crafting" });
     }
+    if (event.type === "challenge-action") {
+      const result = challengeManager.advance(save, event.challengeId, event.targetId);
+      if (!result.accepted) {
+        audioManager.play("pause");
+        showToast(result.message);
+      } else {
+        setSave(result.save);
+        audioManager.play(result.completed ? "upgrade" : "ability");
+        if (result.completed) {
+          setModal({ type: "challengeSuccess", challenge: challengeManager.definition(event.challengeId) });
+        } else {
+          showToast(result.message);
+        }
+      }
+    }
     if (event.type === "area" && event.area) {
       narrationService.stop();
       setCurrentAreaId(event.area.id);
@@ -224,12 +248,19 @@ export default function App() {
       setSave((current) => {
         const result = new GameState(current, sanctuaryManager, storyManager).discover(event.storyScene);
         const quiz = biomeQuizByStoryName[event.storyScene?.name];
+        const challenge = challengeByAreaId[event.area.id];
+        const challengeProgress = challenge
+          ? challengeManager.progress(result.save, challenge.id)
+          : null;
         if (result.discovered) {
           audioManager.play("story");
           setModal({ type: "story", biome: event.storyScene });
         } else if (quiz && !result.save.completedElementQuizzes.includes(quiz.id)) {
           audioManager.play("story");
           setModal({ type: "quiz", quiz });
+        } else if (challenge && !challengeProgress.started && !challengeProgress.completed) {
+          audioManager.play("story");
+          setModal({ type: "challengeStart", challenge });
         }
         return result.save;
       });
@@ -240,7 +271,7 @@ export default function App() {
       if (modal) setModal(null);
       else setPaused((current) => !current);
     }
-  }, [showToast, modal]);
+  }, [showToast, modal, save]);
 
   const buyUpgrade = (upgrade) => {
     if (currentAreaId !== "sanctuary") return showToast("Return to the Sanctuary to complete this repair.");
@@ -285,6 +316,12 @@ export default function App() {
       setModal({ type: "quiz", quiz });
       return;
     }
+    const challenge = challengeByStoryName[biome.name];
+    const progress = challenge ? challengeManager.progress(save, challenge.id) : null;
+    if (challenge && !progress.started && !progress.completed) {
+      setModal({ type: "challengeStart", challenge });
+      return;
+    }
     closeModal();
   };
 
@@ -295,6 +332,23 @@ export default function App() {
     audioManager.play("upgrade");
     const reward = Object.entries(quiz.reward).map(([name, amount]) => `+${amount} ${name}`).join(", ");
     showToast(`Correct! ${reward}`);
+  };
+
+  const continueQuiz = (quiz) => {
+    const challenge = challengeByStoryName[quiz.storyName];
+    const progress = challenge ? challengeManager.progress(save, challenge.id) : null;
+    if (challenge && !progress.started && !progress.completed) {
+      setModal({ type: "challengeStart", challenge });
+      return;
+    }
+    closeModal();
+  };
+
+  const startChallenge = (challenge) => {
+    setSave((current) => challengeManager.start(current, challenge.id));
+    audioManager.play("start");
+    setModal(null);
+    showToast(`${challenge.title} started!`);
   };
 
   const returnToMenu = () => {
@@ -341,7 +395,7 @@ export default function App() {
             </figure>
           ))}
         </div>
-        {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} />}
+        {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} onQuizContinue={continueQuiz} onStartChallenge={startChallenge} />}
       </main>
     );
   }
@@ -383,7 +437,7 @@ export default function App() {
               Return to Sanctuary
             </button>
           )}
-          <div className="controls-note">Move: WASD / arrows &middot; Harvest: Space &middot; Interact: E &middot; Pause: Esc or P</div>
+          <div className="controls-note">Move: WASD / arrows &middot; Ability, harvest, restore: Space &middot; Interact: E &middot; Pause: Esc or P</div>
           {sanctuaryCelebration && (
             <div className="sanctuary-upgrade-banner" style={{ "--upgrade": sanctuaryCelebration.color, "--upgrade-soft": sanctuaryCelebration.softColor }}>
               <img src={snakes[sanctuaryCelebration.guardian].sprite} alt="" />
@@ -399,6 +453,7 @@ export default function App() {
 
         <aside className="right-panel panel">
           <WorldMap currentAreaId={currentAreaId} selectedSnake={save.selectedSnake} />
+          <ChallengeTracker challenge={activeChallenge} progress={activeChallengeProgress} />
           <QuestTracker quest={activeQuest} progress={progress} />
           <InventoryPanel inventory={save.inventory} />
           <SanctuaryPanel completed={save.sanctuaryUpgrades} onUpgrade={buyUpgrade} available={currentAreaId === "sanctuary"} inventory={save.inventory} />
@@ -418,7 +473,7 @@ export default function App() {
           onMainMenu={returnToMenu}
         />
       )}
-      {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} />}
+      {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} onQuizContinue={continueQuiz} onStartChallenge={startChallenge} />}
     </main>
   );
 }

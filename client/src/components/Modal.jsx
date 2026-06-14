@@ -16,7 +16,9 @@ export function Modal({
   onCraft,
   onReturnToCrafting,
   onStoryContinue,
-  onQuizCorrect
+  onQuizCorrect,
+  onQuizContinue,
+  onStartChallenge
 }) {
   if (modal.type === "story") {
     return (
@@ -42,7 +44,57 @@ export function Modal({
   if (modal.type === "quiz") {
     return (
       <div className="modal-backdrop"><article className="modal quiz-modal">
-        <QuizPanel quiz={modal.quiz} onCorrect={onQuizCorrect} onContinue={onClose} />
+        <QuizPanel quiz={modal.quiz} onCorrect={onQuizCorrect} onContinue={() => onQuizContinue(modal.quiz)} />
+      </article></div>
+    );
+  }
+
+  if (modal.type === "challengeStart") {
+    const guardian = snakes[modal.challenge.guardian];
+    return (
+      <div className="modal-backdrop"><article
+        className="modal challenge-modal"
+        style={{ "--guardian": guardian.theme.primary, "--guardian-soft": guardian.theme.soft }}
+      >
+        <div className="challenge-modal-guardian"><img src={guardian.sprite} alt={modal.challenge.guardian} /></div>
+        <p className="eyebrow">Element Restoration Challenge</p>
+        <h2>{modal.challenge.title}</h2>
+        <p>{modal.challenge.startStory}</p>
+        <div className="challenge-objective"><strong>Objective</strong><span>{modal.challenge.objective}</span></div>
+        <aside><strong>Guardian lesson</strong><span>{modal.challenge.lesson}</span></aside>
+        <NarrationControls
+          title={modal.challenge.title}
+          story={modal.challenge.startStory}
+          lesson={modal.challenge.lesson}
+          settings={save.settings}
+        />
+        <button className="primary-button" onClick={() => onStartChallenge(modal.challenge)}>Begin restoration</button>
+      </article></div>
+    );
+  }
+
+  if (modal.type === "challengeSuccess") {
+    const guardian = snakes[modal.challenge.guardian];
+    return (
+      <div className="modal-backdrop"><article
+        className="modal challenge-modal success"
+        style={{ "--guardian": guardian.theme.primary, "--guardian-soft": guardian.theme.soft }}
+      >
+        <div className="challenge-modal-guardian"><img src={guardian.sprite} alt={modal.challenge.guardian} /></div>
+        <p className="eyebrow">Biome restored!</p>
+        <h2>{modal.challenge.title}</h2>
+        <p>{modal.challenge.successStory}</p>
+        <aside><strong>What we learned</strong><span>{modal.challenge.lesson}</span></aside>
+        <div className="reward-box">
+          Reward: {Object.entries(modal.challenge.reward).map(([name, amount]) => `${amount} ${name}`).join(", ")}
+        </div>
+        <NarrationControls
+          title={`${modal.challenge.title} complete`}
+          story={modal.challenge.successStory}
+          lesson={modal.challenge.lesson}
+          settings={save.settings}
+        />
+        <button className="primary-button" onClick={onClose}>Celebrate restoration</button>
       </article></div>
     );
   }
