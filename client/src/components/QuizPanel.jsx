@@ -46,12 +46,12 @@ export function QuizPanel({ quiz, onCorrect, onContinue }) {
       </div>
       {feedback && <p className={`quiz-feedback ${complete ? "correct" : "retry"}`}>{feedback}</p>}
       {complete && (
-        <>
+        <div className="modal-action-dock quiz-action-dock">
           <div className="reward-box">
             Journal reward: {Object.entries(quiz.reward).map(([name, amount]) => `+${amount} ${name}`).join(", ")}
           </div>
           <button type="button" className="primary-button" onClick={onContinue}>Continue adventure</button>
-        </>
+        </div>
       )}
     </article>
   );

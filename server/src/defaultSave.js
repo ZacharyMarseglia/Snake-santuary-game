@@ -48,6 +48,7 @@ export function createDefaultSave(playerName = "Guardian") {
     craftingStoriesSeen: [],
     completedElementQuizzes: [],
     challengeProgress: {},
+    habitatStates: Object.fromEntries(SNAKE_NAMES.map((name) => [name, { unlocked: false }])),
     completedQuests: [],
     questProgress: {},
     sanctuaryUpgrades: [],

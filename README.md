@@ -39,6 +39,7 @@ npm start
 - Click the world: travel toward that point
 - Enter a biome gate or return portal: `E`
 - Use the Guardian Workbench in the Sanctuary: `E` while nearby
+- Visit a guardian habitat room in the Sanctuary: `E` while nearby
 - Harvest a nearby resource with the active guardian's ability: `Space` or the ability button
 - Choose a guardian: use the party panel while in the Sanctuary
 - Progress is saved automatically after starting a player profile
@@ -72,6 +73,7 @@ Evolution unlocks after three sanctuary upgrades including the restored elementa
 - Chrome read-aloud narration for biome stories, crafting stories, and Storybook chapters, queued sentence by sentence with natural pauses, prioritized female English voices, testing, and locally saved voice controls
 - Element Learning Journal with six guardian-led science pages, facts for every raw resource, biome quizzes with gentle retries, and one-time resource rewards
 - Six nonviolent Element Restoration Challenges with ability-based world objectives, live progress tracking, educational start/success stories, persistent partial progress, and one-time biome rewards
+- Six persistent guardian habitat rooms that awaken after matching biome challenges or sanctuary repairs, with animated elemental decor, guardian portraits, bond progress, evolution status, lore, and science facts
 - Five sanctuary landmarks with dramatically different ruined/restored art, persistent pond/garden/shrine/library animation, and focused upgrade celebrations
 - Five sequential quests, progress display, rewards, and completion popups
 - Guardian-led quest cards and sanctuary repairs with character-specific portraits, colors, and elemental marks
@@ -155,12 +157,12 @@ The `server/data` directory is ignored by Git so local profiles are not committe
 
 The project applies GRASP with short comments at the main boundaries:
 
-- Information Expert: `InventoryManager`, `QuestManager`, `SanctuaryManager`, and `story/storyScenes` own the rules or content for their data.
+- Information Expert: `InventoryManager`, `QuestManager`, `SanctuaryManager`, `SanctuaryHabitatManager`, and `story/storyScenes` own the rules or content for their data.
 - Creator and Controller: `GameScene` creates and coordinates `AreaManager`, `AreaRenderer`, and `ResourceManager`; backend setup composes repositories and services.
 - Low Coupling and Indirection: React and Phaser use `GameState`; `SaveService` uses `ApiClient`; Express routes use backend services; services use repositories.
-- High Cohesion: inventory, quest display, sanctuary display, resources, biomes, saves, routes, and SQL access live in focused modules.
+- High Cohesion: inventory, quest display, sanctuary display, habitat rules, habitat rendering, resources, biomes, saves, routes, and SQL access live in focused modules.
 - Polymorphism: snake ability strategies share `use(context)` while dash and collection abilities provide different effects.
-- Protected Variations: snakes, quests, biomes, resources, and upgrades live in separate data modules.
+- Protected Variations: snakes, quests, biomes, resources, upgrades, and habitats live in separate data modules.
 
 ## Credits
 

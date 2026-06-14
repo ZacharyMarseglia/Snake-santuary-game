@@ -4,6 +4,7 @@ import { Storybook } from "./Storybook.jsx";
 import { CraftingPanel } from "./CraftingPanel.jsx";
 import { NarrationControls } from "./NarrationControls.jsx";
 import { QuizPanel } from "./QuizPanel.jsx";
+import { HabitatPanel } from "./HabitatPanel.jsx";
 import { snakes } from "../data/snakes.js";
 
 export function Modal({
@@ -29,13 +30,15 @@ export function Modal({
           <h2>{modal.biome.title}</h2>
           <p>{modal.biome.story}</p>
           <aside><strong>Nature note</strong><span>{modal.biome.lesson}</span></aside>
-          <NarrationControls
-            title={modal.biome.title}
-            story={modal.biome.story}
-            lesson={modal.biome.lesson}
-            settings={save.settings}
-          />
-          <button className="primary-button" onClick={() => onStoryContinue(modal.biome)}>Continue exploring</button>
+          <div className="modal-action-dock">
+            <NarrationControls
+              title={modal.biome.title}
+              story={modal.biome.story}
+              lesson={modal.biome.lesson}
+              settings={save.settings}
+            />
+            <button className="primary-button" onClick={() => onStoryContinue(modal.biome)}>Continue exploring</button>
+          </div>
         </div>
       </article></div>
     );
@@ -62,13 +65,15 @@ export function Modal({
         <p>{modal.challenge.startStory}</p>
         <div className="challenge-objective"><strong>Objective</strong><span>{modal.challenge.objective}</span></div>
         <aside><strong>Guardian lesson</strong><span>{modal.challenge.lesson}</span></aside>
-        <NarrationControls
-          title={modal.challenge.title}
-          story={modal.challenge.startStory}
-          lesson={modal.challenge.lesson}
-          settings={save.settings}
-        />
-        <button className="primary-button" onClick={() => onStartChallenge(modal.challenge)}>Begin restoration</button>
+        <div className="modal-action-dock">
+          <NarrationControls
+            title={modal.challenge.title}
+            story={modal.challenge.startStory}
+            lesson={modal.challenge.lesson}
+            settings={save.settings}
+          />
+          <button className="primary-button" onClick={() => onStartChallenge(modal.challenge)}>Begin restoration</button>
+        </div>
       </article></div>
     );
   }
@@ -88,13 +93,15 @@ export function Modal({
         <div className="reward-box">
           Reward: {Object.entries(modal.challenge.reward).map(([name, amount]) => `${amount} ${name}`).join(", ")}
         </div>
-        <NarrationControls
-          title={`${modal.challenge.title} complete`}
-          story={modal.challenge.successStory}
-          lesson={modal.challenge.lesson}
-          settings={save.settings}
-        />
-        <button className="primary-button" onClick={onClose}>Celebrate restoration</button>
+        <div className="modal-action-dock">
+          <NarrationControls
+            title={`${modal.challenge.title} complete`}
+            story={modal.challenge.successStory}
+            lesson={modal.challenge.lesson}
+            settings={save.settings}
+          />
+          <button className="primary-button" onClick={onClose}>Celebrate restoration</button>
+        </div>
       </article></div>
     );
   }
@@ -113,7 +120,9 @@ export function Modal({
         <h2>{modal.quest.title}</h2>
         <p>{modal.quest.guardian} helped the sanctuary grow stronger.</p>
         <div className="reward-box">Reward: {Object.entries(modal.quest.reward).map(([name, amount]) => `${amount} ${name}`).join(", ")}</div>
-        <button className="primary-button" onClick={onClose}>Collect reward</button>
+        <div className="modal-action-dock">
+          <button className="primary-button" onClick={onClose}>Collect reward</button>
+        </div>
       </article></div>
     );
   }
@@ -131,7 +140,9 @@ export function Modal({
         </div>
         <h2>{modal.snakeName} became {snake.evolution}!</h2>
         <p>A stronger elemental form has awakened with a wider pickup reach and a faster ability cooldown.</p>
-        <button className="primary-button" onClick={onClose}>Meet {snake.evolution}</button>
+        <div className="modal-action-dock">
+          <button className="primary-button" onClick={onClose}>Meet {snake.evolution}</button>
+        </div>
       </article></div>
     );
   }
@@ -159,14 +170,24 @@ export function Modal({
         <h2>{modal.recipe.name}</h2>
         <p>{modal.recipe.story}</p>
         <aside><strong>Workbench lesson</strong><span>{modal.recipe.lesson}</span></aside>
-        <NarrationControls
-          title={modal.recipe.name}
-          story={modal.recipe.story}
-          lesson={modal.recipe.lesson}
-          settings={save.settings}
-        />
-        <button className="primary-button" onClick={onReturnToCrafting}>Return to the Workbench</button>
+        <div className="modal-action-dock">
+          <NarrationControls
+            title={modal.recipe.name}
+            story={modal.recipe.story}
+            lesson={modal.recipe.lesson}
+            settings={save.settings}
+          />
+          <button className="primary-button" onClick={onReturnToCrafting}>Return to the Workbench</button>
+        </div>
       </article></div>
+    );
+  }
+
+  if (modal.type === "habitat") {
+    return (
+      <div className="modal-backdrop">
+        <HabitatPanel profile={modal.habitat} settings={save.settings} onClose={onClose} />
+      </div>
     );
   }
 

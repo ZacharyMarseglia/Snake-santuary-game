@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PhaserGame from "./PhaserGame.jsx";
-import { newSave, quests, recipes, snakes, upgrades } from "./gameData.js";
+import { habitats, newSave, quests, recipes, snakes, upgrades } from "./gameData.js";
 import { areas } from "./data/areas.js";
 import { challengeByAreaId, challengeByStoryName, challenges } from "./data/challenges.js";
 import { biomeQuizByStoryName } from "./data/education.js";
@@ -9,6 +9,7 @@ import { ChallengeManager } from "./domain/ChallengeManager.js";
 import { CraftingManager } from "./domain/CraftingManager.js";
 import { QuestManager } from "./domain/QuestManager.js";
 import { SanctuaryManager } from "./domain/SanctuaryManager.js";
+import { SanctuaryHabitatManager } from "./domain/SanctuaryHabitatManager.js";
 import { StoryManager } from "./domain/StoryManager.js";
 import { ApiClient } from "./services/ApiClient.js";
 import { SaveService } from "./services/SaveService.js";
@@ -29,7 +30,7 @@ function mergeSave(value) {
   const positionsByArea = { ...base.positionsByArea, ...value?.positionsByArea };
   const oldSanctuaryDefault = positionsByArea.sanctuary?.x === 550 && positionsByArea.sanctuary?.y === 430;
   if (oldSanctuaryDefault) positionsByArea.sanctuary = base.positionsByArea.sanctuary;
-  return {
+  const merged = {
     ...base,
     ...value,
     position: (value?.currentArea || base.currentArea) === "sanctuary" && value?.position?.x === 550 && value?.position?.y === 430
@@ -41,9 +42,11 @@ function mergeSave(value) {
     craftingStoriesSeen: value?.craftingStoriesSeen || base.craftingStoriesSeen,
     completedElementQuizzes: value?.completedElementQuizzes || base.completedElementQuizzes,
     challengeProgress: { ...base.challengeProgress, ...value?.challengeProgress },
+    habitatStates: { ...base.habitatStates, ...value?.habitatStates },
     snakeEvolutionStatus: { ...base.snakeEvolutionStatus, ...value?.snakeEvolutionStatus },
     settings: { ...base.settings, ...value?.settings, ...saveService.localNarrationSettings() }
   };
+  return habitatManager.synchronize(merged);
 }
 
 const questManager = new QuestManager(quests);
@@ -51,6 +54,7 @@ const sanctuaryManager = new SanctuaryManager(upgrades);
 const storyManager = new StoryManager();
 const craftingManager = new CraftingManager(recipes);
 const challengeManager = new ChallengeManager(challenges);
+const habitatManager = new SanctuaryHabitatManager(habitats);
 const saveService = new SaveService(new ApiClient());
 
 export default function App() {
@@ -226,13 +230,19 @@ export default function App() {
       audioManager.play("click");
       setModal({ type: "crafting" });
     }
+    if (event.type === "habitat") {
+      audioManager.play("click");
+      const synchronized = habitatManager.synchronize(save);
+      if (synchronized !== save) setSave(synchronized);
+      setModal({ type: "habitat", habitat: habitatManager.profile(synchronized, event.guardian) });
+    }
     if (event.type === "challenge-action") {
       const result = challengeManager.advance(save, event.challengeId, event.targetId);
       if (!result.accepted) {
         audioManager.play("pause");
         showToast(result.message);
       } else {
-        setSave(result.save);
+        setSave(habitatManager.synchronize(result.save));
         audioManager.play(result.completed ? "upgrade" : "ability");
         if (result.completed) {
           setModal({ type: "challengeSuccess", challenge: challengeManager.definition(event.challengeId) });
@@ -277,7 +287,7 @@ export default function App() {
     if (currentAreaId !== "sanctuary") return showToast("Return to the Sanctuary to complete this repair.");
     const next = new GameState(save, sanctuaryManager, storyManager).purchaseUpgrade(upgrade.id);
     if (!next) return showToast("Craft the required guardian relic at the Workbench first.");
-    setSave(next);
+    setSave(habitatManager.synchronize(next));
     audioManager.play("upgrade");
     setSanctuaryCelebration(upgrade);
     window.clearTimeout(celebrationTimer.current);

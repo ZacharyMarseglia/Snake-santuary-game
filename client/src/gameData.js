@@ -1,9 +1,11 @@
 import { resourceNames } from "./data/resources.js";
 import { craftedItemNames, recipeIds } from "./data/recipes.js";
 import { snakes } from "./data/snakes.js";
+import { createDefaultHabitatStates } from "./data/habitats.js";
 
 export { areas, areaList, WORLD_SIZE } from "./data/areas.js";
 export { challengeByAreaId, challengeById, challenges } from "./data/challenges.js";
+export { habitatByGuardian, habitats } from "./data/habitats.js";
 export { quests } from "./data/quests.js";
 export { craftedItemNames, recipeIds, recipes } from "./data/recipes.js";
 export { resourceNames as resources, resourceSpawns, resourceSpawnsByArea } from "./data/resources.js";
@@ -22,6 +24,7 @@ export function newSave(playerName = "Guardian") {
     craftingStoriesSeen: [],
     completedElementQuizzes: [],
     challengeProgress: {},
+    habitatStates: createDefaultHabitatStates(),
     completedQuests: [],
     sanctuaryUpgrades: [],
     storyScenesSeen: [],

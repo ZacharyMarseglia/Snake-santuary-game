@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { areas, WORLD_SIZE } from "./data/areas.js";
 import { challengeByAreaId } from "./data/challenges.js";
+import { habitats } from "./data/habitats.js";
 import { resourceSpawnsByArea } from "./data/resources.js";
 import { snakes } from "./data/snakes.js";
 import { createAbility } from "./game/abilities.js";
@@ -9,6 +10,7 @@ import { AreaRenderer } from "./game/AreaRenderer.js";
 import { ChallengeRenderer } from "./game/ChallengeRenderer.js";
 import { ResourceManager } from "./game/ResourceManager.js";
 import { SanctuaryRenderer } from "./game/SanctuaryRenderer.js";
+import { SanctuaryHabitatRenderer } from "./game/SanctuaryHabitatRenderer.js";
 import { SnakeRenderer } from "./game/SnakeRenderer.js";
 
 export class GameScene extends Phaser.Scene {
@@ -90,6 +92,8 @@ export class GameScene extends Phaser.Scene {
     this.resourceManager = null;
     this.sanctuaryRenderer?.destroy();
     this.sanctuaryRenderer = null;
+    this.habitatRenderer?.destroy();
+    this.habitatRenderer = null;
     this.challengeRenderer?.destroy();
     this.challengeRenderer = null;
     this.obstacles.clear(true, true);
@@ -104,6 +108,8 @@ export class GameScene extends Phaser.Scene {
     if (area.id === "sanctuary") {
       this.sanctuaryRenderer = new SanctuaryRenderer(this, 120);
       this.sanctuaryRenderer.render(this.save.sanctuaryUpgrades);
+      this.habitatRenderer = new SanctuaryHabitatRenderer(this, habitats);
+      this.habitatRenderer.sync(this.save.habitatStates, this.save.snakeEvolutionStatus);
     } else {
       this.resourceManager = new ResourceManager(
         this,
@@ -150,8 +156,13 @@ export class GameScene extends Phaser.Scene {
   interact() {
     if (this.isPaused) return;
     const interaction = this.areaManager.interactionNear(this.player.x, this.player.y);
+    const habitatView = this.habitatRenderer?.nearest(this.player.x, this.player.y);
     if (!interaction) {
-      this.eventsOut({ type: "warning", message: "Move closer to a biome gate, workbench, or return portal." });
+      if (habitatView) {
+        this.eventsOut({ type: "habitat", guardian: habitatView.habitat.guardian });
+        return;
+      }
+      this.eventsOut({ type: "warning", message: "Move closer to a biome gate, habitat room, workbench, or return portal." });
       return;
     }
     if (interaction.type === "workbench") {
@@ -203,6 +214,7 @@ export class GameScene extends Phaser.Scene {
   updatePrompt() {
     const interaction = this.areaManager.interactionNear(this.player.x, this.player.y);
     const portalPrompt = this.areaManager.promptFor(interaction, this.save.selectedSnake);
+    const habitatPrompt = this.habitatRenderer?.promptNear(this.player.x, this.player.y) || "";
     const harvestPrompt = this.resourceManager?.promptNear(
       this.player.x,
       this.player.y,
@@ -214,7 +226,7 @@ export class GameScene extends Phaser.Scene {
       this.player.y,
       this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 155 : 118
     ) || "";
-    this.setPrompt(portalPrompt || challengePrompt || harvestPrompt);
+    this.setPrompt(portalPrompt || habitatPrompt || challengePrompt || harvestPrompt);
   }
 
   setPrompt(message) {
@@ -299,6 +311,7 @@ export class GameScene extends Phaser.Scene {
     );
     const evolutionChanged = JSON.stringify(nextSave.snakeEvolutionStatus) !== JSON.stringify(this.save.snakeEvolutionStatus);
     const challengeProgressChanged = JSON.stringify(nextSave.challengeProgress) !== JSON.stringify(this.save.challengeProgress);
+    const habitatStatesChanged = JSON.stringify(nextSave.habitatStates) !== JSON.stringify(this.save.habitatStates);
     this.save = nextSave;
 
     const area = this.areaManager.current();
@@ -312,6 +325,9 @@ export class GameScene extends Phaser.Scene {
         animate: Boolean(addedUpgradeId),
         upgradeId: addedUpgradeId
       });
+    }
+    if ((habitatStatesChanged || evolutionChanged) && this.habitatRenderer) {
+      this.habitatRenderer.sync(this.save.habitatStates, this.save.snakeEvolutionStatus);
     }
     if (challengeProgressChanged && this.challengeRenderer) {
       const challenge = this.challengeRenderer.challenge;
