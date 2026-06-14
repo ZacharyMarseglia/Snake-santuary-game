@@ -10,11 +10,12 @@ export class GameState {
   }
 
   collect(item) {
-    if (this.save.collectedResourceIds.includes(item.id)) return this.save;
     return {
       ...this.save,
       inventory: new InventoryManager(this.save.inventory).add(item.name).toJSON(),
-      collectedResourceIds: [...this.save.collectedResourceIds, item.id]
+      collectedResourceIds: this.save.collectedResourceIds.includes(item.id)
+        ? this.save.collectedResourceIds
+        : [...this.save.collectedResourceIds, item.id]
     };
   }
 
@@ -46,6 +47,15 @@ export class GameState {
       ...this.save,
       inventory: new InventoryManager(this.save.inventory).addMany(quest.reward).toJSON(),
       completedQuests: [...this.save.completedQuests, quest.id]
+    };
+  }
+
+  completeElementQuiz(quiz) {
+    if (this.save.completedElementQuizzes.includes(quiz.id)) return this.save;
+    return {
+      ...this.save,
+      inventory: new InventoryManager(this.save.inventory).addMany(quiz.reward).toJSON(),
+      completedElementQuizzes: [...this.save.completedElementQuizzes, quiz.id]
     };
   }
 }

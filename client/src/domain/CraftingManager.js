@@ -11,7 +11,7 @@ export class CraftingManager {
   }
 
   isUnlocked(save, recipeId) {
-    return save.unlockedRecipes.includes(recipeId);
+    return save.unlockedRecipes?.includes(recipeId) ?? false;
   }
 
   canCraft(save, recipeId) {
@@ -19,6 +19,16 @@ export class CraftingManager {
     return Boolean(recipe) &&
       this.isUnlocked(save, recipeId) &&
       new InventoryManager(save.inventory).canAfford(recipe.ingredients);
+  }
+
+  missingMaterials(save, recipeId) {
+    const recipe = this.recipe(recipeId);
+    if (!recipe) return [];
+    const inventory = new InventoryManager(save.inventory);
+    return Object.entries(recipe.ingredients)
+      .map(([name, amount]) => ({ name, needed: amount, owned: inventory.count(name) }))
+      .filter((item) => item.owned < item.needed)
+      .map((item) => ({ ...item, missing: item.needed - item.owned }));
   }
 
   craft(save, recipeId) {

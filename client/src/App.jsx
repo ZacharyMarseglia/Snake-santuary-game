@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PhaserGame from "./PhaserGame.jsx";
 import { newSave, quests, recipes, snakes, upgrades } from "./gameData.js";
 import { areas } from "./data/areas.js";
+import { biomeQuizByStoryName } from "./data/education.js";
 import { GameState } from "./domain/GameState.js";
 import { CraftingManager } from "./domain/CraftingManager.js";
 import { QuestManager } from "./domain/QuestManager.js";
@@ -9,6 +10,7 @@ import { SanctuaryManager } from "./domain/SanctuaryManager.js";
 import { StoryManager } from "./domain/StoryManager.js";
 import { ApiClient } from "./services/ApiClient.js";
 import { SaveService } from "./services/SaveService.js";
+import { narrationService } from "./services/NarrationService.js";
 import { EvolutionPanel } from "./components/EvolutionPanel.jsx";
 import { GuardianPanel } from "./components/GuardianPanel.jsx";
 import { InventoryPanel } from "./components/InventoryPanel.jsx";
@@ -34,8 +36,9 @@ function mergeSave(value) {
     positionsByArea,
     unlockedRecipes: value?.unlockedRecipes || base.unlockedRecipes,
     craftingStoriesSeen: value?.craftingStoriesSeen || base.craftingStoriesSeen,
+    completedElementQuizzes: value?.completedElementQuizzes || base.completedElementQuizzes,
     snakeEvolutionStatus: { ...base.snakeEvolutionStatus, ...value?.snakeEvolutionStatus },
-    settings: { ...base.settings, ...value?.settings }
+    settings: { ...base.settings, ...value?.settings, ...saveService.localNarrationSettings() }
   };
 }
 
@@ -48,7 +51,7 @@ const saveService = new SaveService(new ApiClient());
 export default function App() {
   const [screen, setScreen] = useState("menu");
   const [playerId, setPlayerId] = useState(() => saveService.playerId());
-  const [save, setSave] = useState(() => newSave());
+  const [save, setSave] = useState(() => mergeSave());
   const [playerName, setPlayerName] = useState("");
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState("");
@@ -76,6 +79,12 @@ export default function App() {
   }, []);
 
   useEffect(() => () => window.clearTimeout(celebrationTimer.current), []);
+  useEffect(() => {
+    narrationService.stop();
+  }, [screen]);
+  useEffect(() => {
+    saveService.saveNarrationSettings(save.settings);
+  }, [save.settings]);
 
   const openModal = useCallback((type) => {
     audioManager.play("click");
@@ -84,6 +93,7 @@ export default function App() {
 
   const closeModal = useCallback(() => {
     audioManager.play("click");
+    narrationService.stop();
     setModal(null);
   }, []);
 
@@ -183,7 +193,7 @@ export default function App() {
         return new GameState(current, sanctuaryManager, storyManager).collect(event.item);
       });
       audioManager.play("pickup");
-      showToast(`Found ${event.item.name}!`);
+      showToast(`+1 ${event.item.name}`);
     }
     if (event.type === "position") {
       setSave((current) => ({
@@ -194,8 +204,7 @@ export default function App() {
     }
     if (event.type === "ability") {
       audioManager.play("ability");
-      if (event.harvested) showToast(`${event.name} harvested ${event.harvested}!`);
-      else showToast(`${event.name}! Move near a resource to harvest.`);
+      if (!event.harvested) showToast(`${event.name}!`);
     }
     if (event.type === "warning") {
       audioManager.play("pause");
@@ -209,19 +218,25 @@ export default function App() {
       setModal({ type: "crafting" });
     }
     if (event.type === "area" && event.area) {
+      narrationService.stop();
       setCurrentAreaId(event.area.id);
       setSave((current) => ({ ...current, currentArea: event.area.id }));
       setSave((current) => {
         const result = new GameState(current, sanctuaryManager, storyManager).discover(event.storyScene);
+        const quiz = biomeQuizByStoryName[event.storyScene?.name];
         if (result.discovered) {
           audioManager.play("story");
           setModal({ type: "story", biome: event.storyScene });
+        } else if (quiz && !result.save.completedElementQuizzes.includes(quiz.id)) {
+          audioManager.play("story");
+          setModal({ type: "quiz", quiz });
         }
         return result.save;
       });
     }
     if (event.type === "pause") {
       audioManager.play("pause");
+      narrationService.stop();
       if (modal) setModal(null);
       else setPaused((current) => !current);
     }
@@ -240,14 +255,18 @@ export default function App() {
 
   const craftRecipe = (recipe) => {
     const result = new GameState(save, sanctuaryManager, storyManager, craftingManager).craft(recipe.id);
-    if (!result) return showToast("You are still missing some recipe materials.");
+    if (!result) {
+      const missing = craftingManager.missingMaterials(save, recipe.id);
+      const details = missing.map((item) => `${item.missing} ${item.name}`).join(", ");
+      return showToast(details ? `Missing: ${details}` : "This recipe is not unlocked yet.");
+    }
     setSave(result.save);
     audioManager.play("craft");
     if (result.firstCraft) {
       audioManager.play("story");
       setModal({ type: "craftingStory", recipe: result.recipe });
     } else {
-      showToast(`${recipe.name} crafted!`);
+      showToast(`Crafted ${recipe.name}!`);
     }
   };
 
@@ -259,8 +278,28 @@ export default function App() {
     setModal({ type: "evolution", snakeName: name });
   };
 
+  const continueStory = (biome) => {
+    narrationService.stop();
+    const quiz = biomeQuizByStoryName[biome.name];
+    if (quiz && !save.completedElementQuizzes.includes(quiz.id)) {
+      setModal({ type: "quiz", quiz });
+      return;
+    }
+    closeModal();
+  };
+
+  const completeQuiz = (quiz) => {
+    setSave((current) => (
+      new GameState(current, sanctuaryManager, storyManager).completeElementQuiz(quiz)
+    ));
+    audioManager.play("upgrade");
+    const reward = Object.entries(quiz.reward).map(([name, amount]) => `+${amount} ${name}`).join(", ");
+    showToast(`Correct! ${reward}`);
+  };
+
   const returnToMenu = () => {
     audioManager.play("click");
+    narrationService.stop();
     setModal(null);
     setPaused(false);
     setScreen("menu");
@@ -302,7 +341,7 @@ export default function App() {
             </figure>
           ))}
         </div>
-        {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} />}
+        {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} />}
       </main>
     );
   }
@@ -362,7 +401,7 @@ export default function App() {
           <WorldMap currentAreaId={currentAreaId} selectedSnake={save.selectedSnake} />
           <QuestTracker quest={activeQuest} progress={progress} />
           <InventoryPanel inventory={save.inventory} />
-          <SanctuaryPanel completed={save.sanctuaryUpgrades} onUpgrade={buyUpgrade} available={currentAreaId === "sanctuary"} />
+          <SanctuaryPanel completed={save.sanctuaryUpgrades} onUpgrade={buyUpgrade} available={currentAreaId === "sanctuary"} inventory={save.inventory} />
           <EvolutionPanel save={save} onEvolve={evolveSnake} />
         </aside>
       </section>
@@ -379,7 +418,7 @@ export default function App() {
           onMainMenu={returnToMenu}
         />
       )}
-      {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} />}
+      {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} />}
     </main>
   );
 }

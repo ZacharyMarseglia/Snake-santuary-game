@@ -19,11 +19,23 @@ export function newSave(playerName = "Guardian") {
     inventory: Object.fromEntries([...resourceNames, ...craftedItemNames].map((name) => [name, 0])),
     unlockedRecipes: [...recipeIds],
     craftingStoriesSeen: [],
+    completedElementQuizzes: [],
     completedQuests: [],
     sanctuaryUpgrades: [],
     storyScenesSeen: [],
     snakeEvolutionStatus: Object.fromEntries(Object.keys(snakes).map((name) => [name, false])),
     collectedResourceIds: [],
-    settings: { music: true, sound: true, musicVolume: 0.35, soundVolume: 0.7, reducedMotion: false }
+    settings: {
+      music: true,
+      sound: true,
+      narration: false,
+      narrationVoice: "",
+      narrationRate: 0.82,
+      narrationPitch: 1.12,
+      narrationVolume: 1,
+      musicVolume: 0.35,
+      soundVolume: 0.7,
+      reducedMotion: false
+    }
   };
 }

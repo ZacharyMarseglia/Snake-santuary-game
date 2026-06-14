@@ -1,7 +1,9 @@
 import { snakes } from "../data/snakes.js";
 import { upgrades } from "../data/upgrades.js";
+import { InventoryManager } from "../domain/InventoryManager.js";
 
-export function SanctuaryPanel({ completed, onUpgrade, available }) {
+export function SanctuaryPanel({ completed, onUpgrade, available, inventory }) {
+  const items = new InventoryManager(inventory);
   return (
     <section>
       <div className="section-heading"><h2>Sanctuary</h2><span>{completed.length}/5</span></div>
@@ -21,7 +23,10 @@ export function SanctuaryPanel({ completed, onUpgrade, available }) {
               <img src={guardian.sprite} alt="" />
               <span>
                 <strong>{done ? "Restored: " : ""}{upgrade.name}</strong>
-                <small>{done ? `${upgrade.guardian}'s ${upgrade.symbol} mark is glowing` : Object.entries(upgrade.cost).map(([name, amount]) => `${amount} ${name}`).join(" / ")}</small>
+                <small>{done
+                  ? `${upgrade.guardian}'s ${upgrade.symbol} mark is glowing`
+                  : Object.entries(upgrade.cost).map(([name, amount]) => `${items.count(name)}/${amount} ${name}`).join(" / ")}
+                </small>
               </span>
             </button>
           );

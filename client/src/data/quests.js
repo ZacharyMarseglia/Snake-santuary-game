@@ -5,6 +5,7 @@ export const quests = [
     guardian: "Ripplefin",
     title: "Ripplefin's River Rescue",
     text: "Choose Ripplefin, enter River Path from the Sanctuary, and use Water Surge near 2 Clean Water.",
+    learning: "Watch how river water connects habitats and carries useful nutrients downstream.",
     target: { type: "resource", key: "Clean Water", count: 2 },
     reward: { "River Reed": 1 }
   },
@@ -13,6 +14,7 @@ export const quests = [
     guardian: "HeartBloom",
     title: "HeartBloom's Garden Friends",
     text: "Choose HeartBloom, enter Forest Garden, and use Healing Bloom near 2 Heart Petals.",
+    learning: "Notice how flowers, nectar, pollen, and pollinators work together to make seeds.",
     target: { type: "resource", key: "Heart Petals", count: 2 },
     reward: { Seeds: 1 }
   },
@@ -21,6 +23,7 @@ export const quests = [
     guardian: "PebbleBack",
     title: "PebbleBack Builds a Home",
     text: "Harvest in Stone Cave, craft guardian relics at the Workbench, and complete 2 sanctuary upgrades.",
+    learning: "Compare how clay binds materials while stones provide a strong structure.",
     target: { type: "upgrades", count: 2 },
     reward: { "Spark Stone": 1 }
   },
@@ -29,6 +32,7 @@ export const quests = [
     guardian: "Nimbus Coil",
     title: "Nimbus Coil's Skyward Studies",
     text: "Visit each separate area with its matching guardian and discover all 7 science lessons.",
+    learning: "Collect observations from every element, just like a field scientist.",
     target: { type: "stories", count: 7 },
     reward: { "Cloud Fluff": 2 }
   },
@@ -38,6 +42,7 @@ export const quests = [
     supportingGuardian: "Emberling",
     title: "ZapScale and Emberling Restore the Light",
     text: "Harvest across all six biomes, craft every needed relic at the Workbench, then complete all 5 upgrades.",
+    learning: "Combine materials from connected ecosystems to restore energy, warmth, water, soil, and habitat.",
     target: { type: "upgrades", count: 5 },
     reward: { "Heart Petals": 2 }
   }

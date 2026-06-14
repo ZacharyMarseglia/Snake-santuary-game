@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { snakes } from "../data/snakes.js";
 import { storyScenes } from "../story/storyScenes.js";
+import { ElementJournal } from "./ElementJournal.jsx";
+import { NarrationControls } from "./NarrationControls.jsx";
 
 export function Storybook({ save }) {
+  const [view, setView] = useState("stories");
   const unlocked = useMemo(
     () => storyScenes.filter((scene) => save.storyScenesSeen.includes(scene.name)),
     [save.storyScenesSeen]
@@ -14,6 +17,16 @@ export function Storybook({ save }) {
 
   return (
     <div className="storybook-layout">
+      <div className="storybook-view-tabs">
+        <button type="button" className={view === "stories" ? "active" : ""} onClick={() => setView("stories")}>
+          Story Chapters
+        </button>
+        <button type="button" className={view === "journal" ? "active" : ""} onClick={() => setView("journal")}>
+          Element Journal
+        </button>
+      </div>
+      {view === "journal" ? <ElementJournal /> : (
+        <>
       <section className={`storybook-page ${isUnlocked ? "" : "locked"}`}>
         <div className="storybook-image">
           <img src={selected.art} alt={isUnlocked ? selected.title : "Locked story chapter"} />
@@ -30,6 +43,15 @@ export function Storybook({ save }) {
           <h3>{isUnlocked ? selected.title : "An undiscovered tale"}</h3>
           <p>{isUnlocked ? selected.story : `Travel to ${selected.name} to reveal this page.`}</p>
           {isUnlocked && <aside><strong>Nature note</strong><span>{selected.lesson}</span></aside>}
+          {isUnlocked && (
+            <NarrationControls
+              key={selected.name}
+              title={selected.title}
+              story={selected.story}
+              lesson={selected.lesson}
+              settings={save.settings}
+            />
+          )}
         </div>
       </section>
       <nav className="chapter-strip" aria-label="Story chapters">
@@ -47,6 +69,8 @@ export function Storybook({ save }) {
           );
         })}
       </nav>
+        </>
+      )}
       <p className="art-credit">Story scenes and guardian portraits follow the supplied Scale Guardians reference artwork.</p>
     </div>
   );

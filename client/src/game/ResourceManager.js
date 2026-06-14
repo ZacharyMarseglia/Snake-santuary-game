@@ -2,16 +2,15 @@ import Phaser from "phaser";
 
 // GRASP Information Expert: resource proximity, ownership, and harvesting live here.
 export class ResourceManager {
-  constructor(scene, spawns, collectedIds, onCollect) {
+  constructor(scene, spawns, onCollect) {
     this.scene = scene;
     this.spawns = spawns;
-    this.collectedIds = new Set(collectedIds);
     this.onCollect = onCollect;
     this.pickups = [];
   }
 
   create() {
-    this.spawns.filter((item) => !this.collectedIds.has(item.id)).forEach((item) => {
+    this.spawns.forEach((item) => {
       const container = this.scene.add.container(item.x, item.y).setDepth(2);
       const glow = this.scene.add.circle(0, 0, 25, item.color, 0.14);
       const shadow = this.scene.add.ellipse(2, 14, 40, 15, 0x263d33, 0.25);
@@ -53,6 +52,10 @@ export class ResourceManager {
     }, null)?.pickup || null;
   }
 
+  hasPickups() {
+    return this.pickups.length > 0;
+  }
+
   promptNear(x, y, radius, guardianName) {
     const pickup = this.nearest(x, y, radius);
     if (!pickup) return "";
@@ -72,7 +75,6 @@ export class ResourceManager {
     }
 
     this.pickups = this.pickups.filter((candidate) => candidate.id !== pickup.id);
-    this.collectedIds.add(pickup.id);
     this.animateHarvest(pickup, x, y);
     this.onCollect({ id: pickup.id, name: pickup.name, areaId: pickup.areaId });
     return { status: "collected", item: pickup };

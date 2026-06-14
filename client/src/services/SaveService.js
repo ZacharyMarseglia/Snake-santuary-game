@@ -4,10 +4,43 @@ export class SaveService {
     this.api = apiClient;
     this.storage = storage;
     this.playerKey = "scaleGuardiansPlayerId";
+    this.narrationSettingsKey = "scaleGuardiansNarrationSettings";
   }
 
   playerId() {
     return this.storage.getItem(this.playerKey);
+  }
+
+  localNarrationSettings() {
+    try {
+      const stored = JSON.parse(this.storage.getItem(this.narrationSettingsKey) || "{}");
+      const { narrationSettingsVersion, ...settings } = stored;
+      if (narrationSettingsVersion !== 2) {
+        if (settings.narrationRate == null || settings.narrationRate === 0.9) {
+          settings.narrationRate = 0.82;
+        }
+        if (settings.narrationVolume == null || settings.narrationVolume === 0.9) {
+          settings.narrationVolume = 1;
+        }
+      }
+      return settings;
+    } catch {
+      return {};
+    }
+  }
+
+  saveNarrationSettings(settings = {}) {
+    const narrationSettings = {
+      narrationSettingsVersion: 2,
+      narration: Boolean(settings.narration),
+      narrationVoice: settings.narrationVoice || "",
+      narrationRate: Number(settings.narrationRate) || 0.82,
+      narrationPitch: Number(settings.narrationPitch) || 1.12,
+      narrationVolume: Number.isFinite(Number(settings.narrationVolume))
+        ? Number(settings.narrationVolume)
+        : 1
+    };
+    this.storage.setItem(this.narrationSettingsKey, JSON.stringify(narrationSettings));
   }
 
   async create(name) {

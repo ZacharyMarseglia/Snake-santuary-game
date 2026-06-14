@@ -15,6 +15,7 @@ export function QuestTracker({ quest, progress }) {
         </div>
       </div>
       <p>{quest.text}</p>
+      {quest.learning && <p className="quest-learning"><strong>Guardian lesson:</strong> {quest.learning}</p>}
       <div className="progress-track"><span style={{ width: `${(progress / quest.target.count) * 100}%` }} /></div>
       <small>{progress} / {quest.target.count} &middot; Reward: {Object.entries(quest.reward).map(([name, amount]) => `${amount} ${name}`).join(", ")}</small>
     </section>

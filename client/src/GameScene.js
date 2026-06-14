@@ -104,7 +104,6 @@ export class GameScene extends Phaser.Scene {
       this.resourceManager = new ResourceManager(
         this,
         resourceSpawnsByArea[area.id] || [],
-        this.save.collectedResourceIds,
         (item) => this.eventsOut({ type: "pickup", item })
       );
       this.resourceManager.create();
@@ -213,10 +212,20 @@ export class GameScene extends Phaser.Scene {
   useAbility() {
     if (this.isPaused) return;
     const now = this.time.now;
-    if (now < this.abilityReadyAt) return;
-
     const name = this.save.selectedSnake;
     const snake = snakes[name];
+    const area = this.areaManager.current();
+
+    if (area.guardian && area.guardian !== name) {
+      this.eventsOut({ type: "warning", message: `Wrong biome: ${area.name} needs ${area.guardian}.` });
+      return;
+    }
+    if (now < this.abilityReadyAt) {
+      const seconds = Math.max(0.1, (this.abilityReadyAt - now) / 1000).toFixed(1);
+      this.eventsOut({ type: "warning", message: `${snake.ability} is cooling down for ${seconds}s.` });
+      return;
+    }
+
     const evolved = this.save.snakeEvolutionStatus[name];
     const result = createAbility(snake).use({
       guardianName: name,
@@ -239,8 +248,12 @@ export class GameScene extends Phaser.Scene {
         name: snake.harvestAction || snake.ability,
         harvested: result.harvest.item.name
       });
+    } else if (!this.resourceManager) {
+      this.eventsOut({ type: "warning", message: "There are no raw resources here. Enter the matching guardian's biome." });
+    } else if (this.resourceManager.hasPickups()) {
+      this.eventsOut({ type: "warning", message: "Too far away. Move closer to a resource and press Space again." });
     } else {
-      this.eventsOut({ type: "ability", name: snake.ability });
+      this.eventsOut({ type: "warning", message: "This biome is harvested for now. Return later and its resources will renew." });
     }
     this.updatePrompt();
   }

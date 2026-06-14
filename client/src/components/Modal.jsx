@@ -2,9 +2,22 @@ import { CharacterGuide } from "./CharacterGuide.jsx";
 import { SettingsPanel } from "./SettingsPanel.jsx";
 import { Storybook } from "./Storybook.jsx";
 import { CraftingPanel } from "./CraftingPanel.jsx";
+import { NarrationControls } from "./NarrationControls.jsx";
+import { QuizPanel } from "./QuizPanel.jsx";
 import { snakes } from "../data/snakes.js";
 
-export function Modal({ modal, save, onClose, setSave, resetGame, hasPlayer, onCraft, onReturnToCrafting }) {
+export function Modal({
+  modal,
+  save,
+  onClose,
+  setSave,
+  resetGame,
+  hasPlayer,
+  onCraft,
+  onReturnToCrafting,
+  onStoryContinue,
+  onQuizCorrect
+}) {
   if (modal.type === "story") {
     return (
       <div className="modal-backdrop"><article className="modal story-modal illustrated-modal">
@@ -14,8 +27,22 @@ export function Modal({ modal, save, onClose, setSave, resetGame, hasPlayer, onC
           <h2>{modal.biome.title}</h2>
           <p>{modal.biome.story}</p>
           <aside><strong>Nature note</strong><span>{modal.biome.lesson}</span></aside>
-          <button className="primary-button" onClick={onClose}>Continue exploring</button>
+          <NarrationControls
+            title={modal.biome.title}
+            story={modal.biome.story}
+            lesson={modal.biome.lesson}
+            settings={save.settings}
+          />
+          <button className="primary-button" onClick={() => onStoryContinue(modal.biome)}>Continue exploring</button>
         </div>
+      </article></div>
+    );
+  }
+
+  if (modal.type === "quiz") {
+    return (
+      <div className="modal-backdrop"><article className="modal quiz-modal">
+        <QuizPanel quiz={modal.quiz} onCorrect={onQuizCorrect} onContinue={onClose} />
       </article></div>
     );
   }
@@ -76,10 +103,16 @@ export function Modal({ modal, save, onClose, setSave, resetGame, hasPlayer, onC
         style={{ "--guardian": guardian.theme.primary, "--guardian-soft": guardian.theme.soft }}
       >
         <div className="crafting-story-art"><img src={guardian.sprite} alt={modal.recipe.guardian} /></div>
-        <p className="eyebrow">First craft discovered</p>
+        <p className="eyebrow">Crafted {modal.recipe.name}!</p>
         <h2>{modal.recipe.name}</h2>
         <p>{modal.recipe.story}</p>
         <aside><strong>Workbench lesson</strong><span>{modal.recipe.lesson}</span></aside>
+        <NarrationControls
+          title={modal.recipe.name}
+          story={modal.recipe.story}
+          lesson={modal.recipe.lesson}
+          settings={save.settings}
+        />
         <button className="primary-button" onClick={onReturnToCrafting}>Return to the Workbench</button>
       </article></div>
     );
