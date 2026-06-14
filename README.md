@@ -70,6 +70,7 @@ Evolution unlocks after three sanctuary upgrades including the restored elementa
 - Sanctuary repairs consume crafted relics rather than raw biome resources
 - Renewable biome resource nodes with clear success, range, guardian, biome, cooldown, and missing-material feedback
 - Chrome read-aloud narration for biome stories, crafting stories, and Storybook chapters, queued sentence by sentence with natural pauses, prioritized female English voices, testing, and locally saved voice controls
+- Element Learning Journal with six guardian-led science pages, facts for every raw resource, biome quizzes with gentle retries, and one-time resource rewards
 - Five sanctuary landmarks with dramatically different ruined/restored art, persistent pond/garden/shrine/library animation, and focused upgrade celebrations
 - Five sequential quests, progress display, rewards, and completion popups
 - Guardian-led quest cards and sanctuary repairs with character-specific portraits, colors, and elemental marks

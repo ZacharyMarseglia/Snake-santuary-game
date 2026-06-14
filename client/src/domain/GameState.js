@@ -51,11 +51,12 @@ export class GameState {
   }
 
   completeElementQuiz(quiz) {
-    if (this.save.completedElementQuizzes.includes(quiz.id)) return this.save;
+    const completedElementQuizzes = this.save.completedElementQuizzes || [];
+    if (completedElementQuizzes.includes(quiz.id)) return this.save;
     return {
       ...this.save,
       inventory: new InventoryManager(this.save.inventory).addMany(quiz.reward).toJSON(),
-      completedElementQuizzes: [...this.save.completedElementQuizzes, quiz.id]
+      completedElementQuizzes: [...completedElementQuizzes, quiz.id]
     };
   }
 }
