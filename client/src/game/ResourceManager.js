@@ -5,14 +5,20 @@ import { elementName, itemName, t } from "../i18n/localization.js";
 export class ResourceManager {
   constructor(scene, spawns, onCollect) {
     this.scene = scene;
-    this.spawns = spawns;
+    this.spawns = Array.isArray(spawns) ? spawns : [];
     this.onCollect = onCollect;
     this.pickups = [];
   }
 
   create() {
+    if (!this.spawns.length) return;
     const language = this.scene.save.settings?.language || "en";
-    this.spawns.forEach((item) => {
+    this.spawns.filter((item) => (
+      item
+      && Number.isFinite(Number(item.x))
+      && Number.isFinite(Number(item.y))
+      && typeof item.name === "string"
+    )).forEach((item) => {
       const container = this.scene.add.container(item.x, item.y).setDepth(2);
       const glow = this.scene.add.circle(0, 0, 25, item.color, 0.14);
       const shadow = this.scene.add.ellipse(2, 14, 40, 15, 0x263d33, 0.25);

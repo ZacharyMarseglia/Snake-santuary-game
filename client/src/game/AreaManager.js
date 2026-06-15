@@ -1,11 +1,11 @@
-import { guardianAccessMessage } from "../data/areas.js";
+import { guardianAccessMessage, normalizeAreaId, resolveAreaId } from "../data/areas.js";
 import { areaName, t } from "../i18n/localization.js";
 
 // GRASP Information Expert: area access and portal interaction live with area data.
 export class AreaManager {
   constructor(areas, initialAreaId = "sanctuary") {
     this.areas = areas;
-    this.currentAreaId = areas[initialAreaId] ? initialAreaId : "sanctuary";
+    this.currentAreaId = normalizeAreaId(initialAreaId);
   }
 
   current() {
@@ -13,17 +13,19 @@ export class AreaManager {
   }
 
   canEnter(areaId, guardianName) {
-    const area = this.areas[areaId];
+    const resolvedAreaId = resolveAreaId(areaId);
+    const area = resolvedAreaId ? this.areas[resolvedAreaId] : null;
     return Boolean(area) && (!area.guardian || area.guardian === guardianName);
   }
 
   enter(areaId, guardianName, language = "en") {
-    const area = this.areas[areaId];
+    const resolvedAreaId = resolveAreaId(areaId);
+    const area = resolvedAreaId ? this.areas[resolvedAreaId] : null;
     if (!area) return { ok: false, message: t("pathHidden", language) };
-    if (!this.canEnter(areaId, guardianName)) {
+    if (!this.canEnter(resolvedAreaId, guardianName)) {
       return { ok: false, message: guardianAccessMessage(area, language) };
     }
-    this.currentAreaId = areaId;
+    this.currentAreaId = resolvedAreaId;
     return { ok: true, area };
   }
 

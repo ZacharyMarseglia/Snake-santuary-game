@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PhaserGame from "./PhaserGame.jsx";
 import { habitats, newSave, quests, recipes, snakes, upgrades } from "./gameData.js";
-import { areas } from "./data/areas.js";
+import { areas, normalizeAreaId, normalizeAreaPosition, resolveAreaId } from "./data/areas.js";
 import { challengeByAreaId, challengeByStoryName, challenges } from "./data/challenges.js";
 import { biomeQuizByStoryName } from "./data/education.js";
 import { evolutionScenes } from "./data/evolutionScenes.js";
@@ -32,15 +32,27 @@ function mergeSave(value) {
   const base = newSave(value?.playerName);
   const localNarrationSettings = saveService.localNarrationSettings();
   const localLanguage = saveService.localLanguage();
-  const positionsByArea = { ...base.positionsByArea, ...value?.positionsByArea };
+  const currentArea = normalizeAreaId(value?.currentArea);
+  const positionsByArea = { ...base.positionsByArea };
+  Object.entries(value?.positionsByArea || {}).forEach(([areaId, position]) => {
+    const resolvedAreaId = resolveAreaId(areaId);
+    if (!resolvedAreaId) return;
+    positionsByArea[resolvedAreaId] = normalizeAreaPosition(position, resolvedAreaId);
+  });
   const oldSanctuaryDefault = positionsByArea.sanctuary?.x === 550 && positionsByArea.sanctuary?.y === 430;
   if (oldSanctuaryDefault) positionsByArea.sanctuary = base.positionsByArea.sanctuary;
+  const currentPosition = normalizeAreaPosition(
+    value?.position || positionsByArea[currentArea],
+    currentArea
+  );
+  positionsByArea[currentArea] = currentPosition;
   const merged = {
     ...base,
     ...value,
-    position: (value?.currentArea || base.currentArea) === "sanctuary" && value?.position?.x === 550 && value?.position?.y === 430
+    currentArea,
+    position: currentArea === "sanctuary" && value?.position?.x === 550 && value?.position?.y === 430
       ? base.position
-      : (value?.position || base.position),
+      : currentPosition,
     inventory: { ...base.inventory, ...value?.inventory },
     positionsByArea,
     unlockedRecipes: value?.unlockedRecipes || base.unlockedRecipes,
@@ -80,7 +92,7 @@ export default function App() {
   const [playerName, setPlayerName] = useState("");
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState("");
-  const [currentAreaId, setCurrentAreaId] = useState("sanctuary");
+  const [currentAreaId, setCurrentAreaId] = useState(() => normalizeAreaId(save.currentArea));
   const [worldPrompt, setWorldPrompt] = useState("");
   const [sanctuaryCelebration, setSanctuaryCelebration] = useState(null);
   const [saveStatus, setSaveStatus] = useState("notSaved");

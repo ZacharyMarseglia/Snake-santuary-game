@@ -56,6 +56,56 @@ export const areas = {
 
 export const areaList = Object.values(areas);
 
+const AREA_ID_ALIASES = {
+  sanctuary: "sanctuary",
+  homebase: "sanctuary",
+  sanctuaryhomebase: "sanctuary",
+  river: "river",
+  riverpath: "river",
+  cloud: "cloud",
+  cloudhills: "cloud",
+  stone: "stone",
+  stonecave: "stone",
+  ash: "ash",
+  ashfield: "ash",
+  storm: "storm",
+  stormgate: "storm",
+  forest: "forest",
+  forestgarden: "forest"
+};
+
+// GRASP Protected Variations: legacy and corrupted save IDs are normalized at the data boundary.
+export function resolveAreaId(areaId) {
+  if (typeof areaId !== "string") return null;
+  const exact = areaId.trim();
+  if (areas[exact]) return exact;
+  const token = exact.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return AREA_ID_ALIASES[token] || null;
+}
+
+export function normalizeAreaId(areaId) {
+  return resolveAreaId(areaId) || "sanctuary";
+}
+
+export function normalizeAreaPosition(position, areaId) {
+  const normalizedAreaId = normalizeAreaId(areaId);
+  const fallback = areas[normalizedAreaId].spawn;
+  const x = Number(position?.x);
+  const y = Number(position?.y);
+  const margin = 35;
+  if (
+    !Number.isFinite(x)
+    || !Number.isFinite(y)
+    || x < margin
+    || y < margin
+    || x > WORLD_SIZE.width - margin
+    || y > WORLD_SIZE.height - margin
+  ) {
+    return { ...fallback };
+  }
+  return { x, y };
+}
+
 export function guardianAccessMessage(area, language = "en") {
   if (!area.guardian) return "";
   return t("onlyGuardianEnter", language, {

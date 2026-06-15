@@ -20,6 +20,16 @@ export class AreaRenderer {
   }
 
   render(area) {
+    const safeArea = area && areas[area.id] ? area : areas.sanctuary;
+    try {
+      return this.renderArea(safeArea);
+    } catch (error) {
+      console.error(`[Scale Guardians] Failed to render ${safeArea.name}. Using procedural fallback.`, error);
+      return this.renderFallback(safeArea);
+    }
+  }
+
+  renderArea(area) {
     this.clear();
     const language = this.scene.save.settings?.language || "en";
     const g = this.add(this.scene.add.graphics().setDepth(0));
@@ -29,7 +39,13 @@ export class AreaRenderer {
     g.lineStyle(3, area.colors.shadow, 0.5).strokeRoundedRect(20, 20, WORLD_SIZE.width - 40, WORLD_SIZE.height - 40, 31);
 
     if (area.id === "sanctuary") this.drawSanctuary(g, area);
-    else this[`draw${capitalize(area.id)}`](g, area);
+    else {
+      const rendererName = `draw${capitalize(area.id)}`;
+      if (typeof this[rendererName] !== "function") {
+        throw new Error(`Missing area renderer: ${rendererName}`);
+      }
+      this[rendererName](g, area);
+    }
 
     this.add(this.scene.add.text(35, 28, areaName(area.name, language), {
       fontFamily: "Georgia, serif",
@@ -42,6 +58,51 @@ export class AreaRenderer {
 
     if (area.id !== "sanctuary") this.drawReturnPortal(g, area);
     return this.obstaclesFor(area.id);
+  }
+
+  renderFallback(area) {
+    this.clear();
+    const language = this.scene.save.settings?.language || "en";
+    const g = this.add(this.scene.add.graphics().setDepth(0));
+    const ground = area?.colors?.ground ?? areas.sanctuary.colors.ground;
+    const shadow = area?.colors?.shadow ?? areas.sanctuary.colors.shadow;
+    g.fillStyle(ground, 1).fillRect(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
+    g.fillStyle(0xfff8dc, 0.1).fillRoundedRect(22, 22, WORLD_SIZE.width - 44, WORLD_SIZE.height - 44, 34);
+    g.lineStyle(5, shadow, 0.45).strokeRoundedRect(22, 22, WORLD_SIZE.width - 44, WORLD_SIZE.height - 44, 34);
+
+    if (area.id === "cloud") {
+      g.fillStyle(0x78b7d5, 0.38).fillRect(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
+      [
+        [250, 185, 230, 125],
+        [555, 225, 280, 145],
+        [870, 180, 220, 120],
+        [360, 505, 260, 140],
+        [760, 500, 310, 155]
+      ].forEach(([x, y, width, height], index) => {
+        g.fillStyle(0xf7fcf7, 0.94).fillEllipse(x, y, width, height);
+        g.fillStyle(0xdcecf0, 0.58).fillEllipse(x, y + 26, width * 0.8, height * 0.45);
+        g.lineStyle(3, 0x6e9ab4, 0.55).strokeEllipse(x, y, width, height);
+        const swirlX = x + (index % 2 ? 65 : -60);
+        g.lineStyle(4, 0xd8f8ff, 0.72).strokeCircle(swirlX, y - 62, 20 + index * 2);
+      });
+    } else {
+      for (let index = 0; index < 18; index++) {
+        const x = 90 + ((index * 137) % 930);
+        const y = 110 + ((index * 83) % 510);
+        g.fillStyle(area.colors.accent, 0.35).fillCircle(x, y, 9 + (index % 4) * 3);
+      }
+    }
+
+    this.add(this.scene.add.text(35, 28, areaName(area.name, language), {
+      fontFamily: "Georgia, serif",
+      fontStyle: "bold",
+      fontSize: "29px",
+      color: "#fff8d9",
+      stroke: hex(shadow),
+      strokeThickness: 7
+    }).setDepth(5));
+    if (area.id !== "sanctuary") this.drawReturnPortal(g, area);
+    return [];
   }
 
   drawPaperTexture(g, color) {
@@ -140,21 +201,22 @@ export class AreaRenderer {
   }
 
   drawCloud(g) {
-    g.fillStyle(0x78b7d5, 0.3).fillRect(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
+    g.fillStyle(0xc7edf2, 0.48).fillRect(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
+    g.fillStyle(0xfff7c7, 0.22).fillCircle(920, 105, 92);
     const islands = [[280,190,190,110],[555,155,220,125],[835,230,190,110],[400,450,210,120],[730,500,240,130],[970,430,150,100]];
     islands.forEach(([x,y,w,h], index) => {
-      g.fillStyle(0xf8fcf3, 0.88).fillEllipse(x, y, w, h);
-      g.fillStyle(0xdcebef, 0.48).fillEllipse(x, y + 25, w * 0.85, h * 0.55);
-      g.lineStyle(3, 0x789db4, 0.45).strokeEllipse(x, y, w, h);
+      g.fillStyle(0xffffff, 0.96).fillEllipse(x, y, w, h);
+      g.fillStyle(0xe6f3f5, 0.55).fillEllipse(x, y + 25, w * 0.85, h * 0.55);
+      g.lineStyle(3, 0x789db4, 0.38).strokeEllipse(x, y, w, h);
       if (index < islands.length - 1) {
         const next = islands[index + 1];
-        g.lineStyle(18, 0xe8f6f3, 0.68).beginPath().moveTo(x + w / 3, y).lineTo(next[0] - next[2] / 3, next[1]).strokePath();
+        g.lineStyle(18, 0xf4ffff, 0.82).beginPath().moveTo(x + w / 3, y).lineTo(next[0] - next[2] / 3, next[1]).strokePath();
       }
     });
     for (let i = 0; i < 12; i++) {
       const x = 210 + ((i * 131) % 760);
       const y = 95 + ((i * 71) % 520);
-      g.lineStyle(3, 0xd9fbff, 0.65).beginPath().arc(x, y, 18 + (i % 3) * 7, 0.2, 5.2).strokePath();
+      g.lineStyle(3, 0xe9ffff, 0.82).beginPath().arc(x, y, 18 + (i % 3) * 7, 0.2, 5.2).strokePath();
     }
   }
 

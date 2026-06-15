@@ -1,5 +1,11 @@
 import Phaser from "phaser";
-import { areas, WORLD_SIZE } from "./data/areas.js";
+import {
+  areas,
+  normalizeAreaId,
+  normalizeAreaPosition,
+  resolveAreaId,
+  WORLD_SIZE
+} from "./data/areas.js";
 import { challengeByAreaId } from "./data/challenges.js";
 import { habitats } from "./data/habitats.js";
 import { resourceSpawnsByArea } from "./data/resources.js";
@@ -26,9 +32,14 @@ export class GameScene extends Phaser.Scene {
     this.lastPositionSentAt = 0;
     this.lastPrompt = "";
     this.isPaused = false;
+    this.isTransitioning = false;
+    this.transitionTimer = null;
   }
 
   preload() {
+    this.load.on("loaderror", (file) => {
+      console.warn(`[Scale Guardians] Asset failed to load: ${file?.key || file?.src || "unknown asset"}`);
+    });
     Object.values(snakes).forEach((snake) => {
       if (!this.textures.exists(snake.spriteKey)) this.load.image(snake.spriteKey, snake.sprite);
       if (!this.textures.exists(snake.evolvedSpriteKey)) {
@@ -41,8 +52,13 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
     this.cameras.main.setBounds(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
     this.cameras.main.setBackgroundColor("#789f72");
+    this.resetCameraOverlay();
 
-    const requestedArea = areas[this.save.currentArea] || areas.sanctuary;
+    const savedAreaId = resolveAreaId(this.save.currentArea);
+    if (!savedAreaId && this.save.currentArea) {
+      console.warn(`[Scale Guardians] Invalid saved area "${this.save.currentArea}". Loading Sanctuary.`);
+    }
+    const requestedArea = areas[savedAreaId || "sanctuary"];
     const initialAreaId = requestedArea.guardian && requestedArea.guardian !== this.save.selectedSnake
       ? "sanctuary"
       : requestedArea.id;
@@ -67,6 +83,11 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.transitionTimer?.remove(false);
+      this.transitionTimer = null;
+      this.resetCameraOverlay();
+    });
     this.eventsOut({ type: "ready" });
     this.emitArea();
   }
@@ -87,7 +108,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   renderArea(areaId, transition = true) {
-    const area = areas[areaId];
+    // A completed Phaser fade-out keeps drawing until reset, so always clear it before rebuilding an area.
+    this.resetCameraOverlay();
+    const normalizedAreaId = normalizeAreaId(areaId);
+    if (normalizedAreaId !== areaId) {
+      console.warn(`[Scale Guardians] Unknown area "${areaId}". Loading Sanctuary.`);
+    }
+    const area = areas[normalizedAreaId];
+    this.areaManager.currentAreaId = area.id;
     this.target = null;
     this.resourceManager?.destroy();
     this.resourceManager = null;
@@ -112,29 +140,50 @@ export class GameScene extends Phaser.Scene {
       this.habitatRenderer = new SanctuaryHabitatRenderer(this, habitats);
       this.habitatRenderer.sync(this.save.habitatStates, this.save.snakeEvolutionStatus);
     } else {
+      const spawns = resourceSpawnsByArea[area.id];
+      if (!Array.isArray(spawns) || !spawns.length) {
+        console.warn(`[Scale Guardians] No resource spawn data for "${area.id}". The player will still be rendered.`);
+      }
       this.resourceManager = new ResourceManager(
         this,
-        resourceSpawnsByArea[area.id] || [],
+        spawns,
         (item) => this.eventsOut({ type: "pickup", item })
       );
-      this.resourceManager.create();
+      try {
+        this.resourceManager.create();
+      } catch (error) {
+        console.error(`[Scale Guardians] Resource rendering failed in ${area.name}.`, error);
+        this.resourceManager.destroy();
+        this.resourceManager = null;
+      }
       const challenge = challengeByAreaId[area.id];
       if (challenge) {
         this.challengeRenderer = new ChallengeRenderer(this, challenge);
-        this.challengeRenderer.sync(this.save.challengeProgress?.[challenge.id]);
+        try {
+          this.challengeRenderer.sync(this.save.challengeProgress?.[challenge.id]);
+        } catch (error) {
+          console.error(`[Scale Guardians] Challenge rendering failed in ${area.name}.`, error);
+          this.challengeRenderer.destroy();
+          this.challengeRenderer = null;
+        }
       }
     }
 
     const savedPosition = this.save.positionsByArea?.[area.id];
-    const spawn = transition ? area.spawn : (savedPosition || area.spawn);
+    const spawn = transition
+      ? { ...area.spawn }
+      : normalizeAreaPosition(savedPosition || this.save.position, area.id);
     this.player.setPosition(spawn.x, spawn.y);
+    this.player.setActive(true).setVisible(true).setDepth(8);
     this.player.body.setVelocity(0, 0);
     this.cameras.main.setBackgroundColor(`#${area.colors.ground.toString(16).padStart(6, "0")}`);
-    if (transition) this.cameras.main.fadeIn(260, 255, 245, 210);
+    this.resetCameraOverlay();
     this.setPrompt("");
+    return area;
   }
 
   enterArea(areaId) {
+    if (this.isTransitioning) return false;
     const result = this.areaManager.enter(
       areaId,
       this.save.selectedSnake,
@@ -145,12 +194,38 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.shake(170, 0.004);
       return false;
     }
+    this.isTransitioning = true;
+    this.transitionTimer?.remove(false);
+    this.resetCameraOverlay();
     this.cameras.main.fadeOut(170, 34, 49, 40);
-    this.time.delayedCall(180, () => {
-      this.renderArea(areaId, true);
-      this.emitArea();
+    this.transitionTimer = this.time.delayedCall(180, () => {
+      try {
+        // Remove the completed fade-out before the new world is shown or a story modal pauses gameplay.
+        this.resetCameraOverlay();
+        this.renderArea(result.area.id, true);
+        this.emitArea();
+      } catch (error) {
+        console.error(`[Scale Guardians] Area transition to ${result.area.name} failed. Returning to Sanctuary.`, error);
+        this.renderArea("sanctuary", true);
+        this.emitArea();
+      } finally {
+        this.isTransitioning = false;
+        this.transitionTimer = null;
+        this.resetCameraOverlay();
+      }
     });
     return true;
+  }
+
+  resetCameraOverlay() {
+    const camera = this.cameras?.main;
+    if (!camera) return;
+    camera.resetFX();
+    if (camera.fadeEffect) {
+      camera.fadeEffect.alpha = 0;
+      camera.fadeEffect.progress = 0;
+    }
+    camera.setAlpha(1);
   }
 
   returnToSanctuary() {
@@ -181,6 +256,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time) {
+    const fade = this.cameras.main.fadeEffect;
+    if (!this.isTransitioning && (fade.isRunning || fade.isComplete || fade.alpha > 0.001)) {
+      this.resetCameraOverlay();
+    }
     if (this.isPaused) return;
     const snake = snakes[this.save.selectedSnake];
     let dx = 0;
@@ -401,6 +480,7 @@ export class GameScene extends Phaser.Scene {
     this.isPaused = paused;
     this.target = null;
     this.player?.body?.setVelocity(0, 0);
+    if (paused && !this.isTransitioning) this.resetCameraOverlay();
     if (paused) {
       this.physics.world.pause();
       this.tweens.pauseAll();

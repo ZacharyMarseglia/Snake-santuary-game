@@ -12,13 +12,17 @@ export class ChallengeRenderer {
   }
 
   sync(progress = {}) {
-    const signature = JSON.stringify(progress);
+    const safeProgress = progress && typeof progress === "object" ? progress : {};
+    const completedTargetIds = Array.isArray(safeProgress.completedTargetIds)
+      ? safeProgress.completedTargetIds.filter((id) => typeof id === "string")
+      : [];
+    const signature = JSON.stringify({ ...safeProgress, completedTargetIds });
     if (signature === this.signature) return;
     this.signature = signature;
     this.clear();
 
-    if (!progress.started && !progress.completed) return;
-    const completedIds = new Set(progress.completedTargetIds || []);
+    if (!safeProgress.started && !safeProgress.completed) return;
+    const completedIds = new Set(completedTargetIds);
     this.challenge.targets.forEach((target) => {
       const completed = completedIds.has(target.id);
       const gameObject = this.drawTarget(target, completed);
