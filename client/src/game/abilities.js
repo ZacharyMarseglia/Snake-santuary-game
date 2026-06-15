@@ -5,7 +5,7 @@ class GuardianAbility {
     return context.resourceManager?.harvestNearest(
       context.player.x,
       context.player.y,
-      context.evolved ? 150 : 112,
+      context.evolved ? 165 : 112,
       context.guardianName
     ) || { status: "none" };
   }

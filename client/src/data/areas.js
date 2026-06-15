@@ -1,4 +1,5 @@
 import { storySceneByBiome } from "../story/storyScenes.js";
+import { areaName, t } from "../i18n/localization.js";
 
 export const WORLD_SIZE = { width: 1100, height: 720 };
 
@@ -55,7 +56,10 @@ export const areas = {
 
 export const areaList = Object.values(areas);
 
-export function guardianAccessMessage(area) {
+export function guardianAccessMessage(area, language = "en") {
   if (!area.guardian) return "";
-  return `Only ${area.guardian} can safely enter the ${area.name}.`;
+  return t("onlyGuardianEnter", language, {
+    guardian: area.guardian,
+    area: areaName(area.name, language)
+  });
 }

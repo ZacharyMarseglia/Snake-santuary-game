@@ -6,10 +6,13 @@ export class SnakeRenderer {
     this.definition = definition;
     this.evolved = evolved;
     this.facing = 1;
-    this.baseScale = evolved ? 0.27 : 0.23;
+    this.baseScale = evolved ? 0.3 : 0.23;
 
     this.shadow = scene.add.ellipse(0, 34, evolved ? 112 : 96, evolved ? 30 : 25, 0x26382f, 0.24);
     this.aura = scene.add.ellipse(0, 2, evolved ? 116 : 94, evolved ? 92 : 76, definition.accent, evolved ? 0.18 : 0.08);
+    this.outerAura = evolved
+      ? scene.add.ellipse(0, 2, 140, 112, definition.color, 0.06).setStrokeStyle(3, definition.accent, 0.34)
+      : null;
     this.sprite = scene.add.image(
       0,
       -7,
@@ -24,7 +27,19 @@ export class SnakeRenderer {
       padding: { x: 7, y: 3 }
     }).setOrigin(0.5);
 
-    parent.add([this.shadow, this.aura, this.sprite, this.label]);
+    this.elementLights = evolved
+      ? Array.from({ length: 6 }, (_, index) => (
+        scene.add.circle(0, 0, index % 2 ? 3 : 4, index % 2 ? definition.color : definition.accent, 0.76)
+      ))
+      : [];
+    parent.add([
+      this.shadow,
+      ...(this.outerAura ? [this.outerAura] : []),
+      this.aura,
+      ...this.elementLights,
+      this.sprite,
+      this.label
+    ]);
   }
 
   update(time, moving, velocityX) {
@@ -39,6 +54,17 @@ export class SnakeRenderer {
     this.sprite.setScale(this.baseScale * this.facing * squash, this.baseScale / squash);
     this.aura.y = bob * 0.35;
     this.aura.alpha = (this.evolved ? 0.17 : 0.07) + (reduced ? 0 : Math.sin(time * 0.004) * 0.025);
+    if (this.outerAura) {
+      this.outerAura.rotation = reduced ? 0 : time * 0.00035;
+      this.outerAura.alpha = reduced ? 0.08 : 0.07 + Math.sin(time * 0.003) * 0.025;
+    }
+    this.elementLights.forEach((light, index) => {
+      const angle = time * 0.0011 + (Math.PI * 2 * index) / this.elementLights.length;
+      const radiusX = 63 + (index % 2) * 7;
+      const radiusY = 45 + (index % 3) * 4;
+      light.setPosition(Math.cos(angle) * radiusX, Math.sin(angle) * radiusY + bob * 0.3);
+      light.alpha = reduced ? 0.58 : 0.55 + Math.sin(time * 0.006 + index) * 0.25;
+    });
     this.shadow.scaleX = moving && !reduced ? 1.08 : 1;
     this.label.y = (this.evolved ? -72 : -64) + bob * 0.45;
   }
@@ -46,6 +72,8 @@ export class SnakeRenderer {
   destroy() {
     this.shadow.destroy();
     this.aura.destroy();
+    this.outerAura?.destroy();
+    this.elementLights.forEach((light) => light.destroy());
     this.sprite.destroy();
     this.label.destroy();
   }

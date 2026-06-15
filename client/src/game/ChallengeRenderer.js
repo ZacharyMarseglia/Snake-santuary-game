@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { abilityName, challengeTargetLabel, t } from "../i18n/localization.js";
 
 // GRASP Pure Fabrication: challenge visuals and proximity stay outside progress rules.
 export class ChallengeRenderer {
@@ -36,9 +37,12 @@ export class ChallengeRenderer {
 
   promptNear(x, y, radius) {
     const target = this.nearest(x, y, radius);
-    return target
-      ? `Press Space to use ${this.challenge.action} on ${target.label}.`
-      : "";
+    const language = this.scene.save.settings?.language || "en";
+    const label = target ? challengeTargetLabel(this.challenge.id, target, language) : "";
+    return target ? t("challengeAbilityPrompt", language, {
+      ability: abilityName(this.challenge.action, language),
+      target: label
+    }) : "";
   }
 
   animateAttempt(target) {
@@ -53,12 +57,14 @@ export class ChallengeRenderer {
   }
 
   drawTarget(target, completed) {
+    const language = this.scene.save.settings?.language || "en";
+    const targetLabel = challengeTargetLabel(this.challenge.id, target, language);
     const container = this.scene.add.container(target.x, target.y).setDepth(3);
     const shadow = this.scene.add.ellipse(0, 22, 70, 22, 0x26382f, 0.24);
     const glow = this.scene.add.circle(0, 0, completed ? 34 : 29, completed ? 0x9fe3a6 : 0xffd477, completed ? 0.2 : 0.14);
     const art = this.scene.add.graphics();
     this.drawKind(art, this.challenge.kind, completed, target);
-    const label = this.scene.add.text(0, 38, completed ? "Restored" : target.label, {
+    const label = this.scene.add.text(0, 38, completed ? t("restoredLabel", language) : targetLabel, {
       fontFamily: "Trebuchet MS",
       fontStyle: "bold",
       fontSize: "11px",

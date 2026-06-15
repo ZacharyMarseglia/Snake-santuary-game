@@ -1,10 +1,11 @@
 import { areaList } from "../data/areas.js";
 import { snakes } from "../data/snakes.js";
+import { areaName, t } from "../i18n/localization.js";
 
-export function WorldMap({ currentAreaId, selectedSnake }) {
+export function WorldMap({ currentAreaId, selectedSnake, language = "en" }) {
   return (
     <section className="world-map-section">
-      <div className="section-heading"><h2>World Map</h2><span>7 areas</span></div>
+      <div className="section-heading"><h2>{t("worldMap", language)}</h2><span>{t("areaCount", language, { count: 7 })}</span></div>
       <div className="world-map-grid">
         {areaList.map((area) => {
           const guardian = area.guardian ? snakes[area.guardian] : null;
@@ -20,12 +21,12 @@ export function WorldMap({ currentAreaId, selectedSnake }) {
               }}
             >
               {guardian ? <img src={guardian.sprite} alt="" /> : <span className="home-rune">SG</span>}
-              <small>{area.name.replace(" / Home Base", "")}</small>
+              <small>{areaName(area.name.replace(" / Home Base", ""), language)}</small>
             </div>
           );
         })}
       </div>
-      <p className="map-help">Choose a guardian at home, then find their matching gate.</p>
+      <p className="map-help">{t("mapHelp", language)}</p>
     </section>
   );
 }

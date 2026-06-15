@@ -1,12 +1,14 @@
 import { InventoryManager } from "./InventoryManager.js";
+import { t } from "../i18n/localization.js";
 
 // GRASP Indirection: UI and Phaser dispatch actions through one serializable state model.
 export class GameState {
-  constructor(save, sanctuaryManager, storyManager, craftingManager = null) {
+  constructor(save, sanctuaryManager, storyManager, craftingManager = null, evolutionManager = null) {
     this.save = save;
     this.sanctuaryManager = sanctuaryManager;
     this.storyManager = storyManager;
     this.craftingManager = craftingManager;
+    this.evolutionManager = evolutionManager;
   }
 
   collect(item) {
@@ -35,10 +37,10 @@ export class GameState {
   }
 
   evolve(name) {
-    if (!this.sanctuaryManager.canEvolve(this.save) || this.save.snakeEvolutionStatus[name]) return null;
-    return {
-      ...this.save,
-      snakeEvolutionStatus: { ...this.save.snakeEvolutionStatus, [name]: true }
+    return this.evolutionManager?.evolve(this.save, name) || {
+      ok: false,
+      save: this.save,
+      message: t("evolutionUnavailable", this.save.settings?.language || "en")
     };
   }
 

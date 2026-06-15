@@ -1,5 +1,6 @@
 import { areas, WORLD_SIZE } from "../data/areas.js";
 import { snakes } from "../data/snakes.js";
+import { areaName, t } from "../i18n/localization.js";
 
 // GRASP Pure Fabrication: world illustration is isolated from navigation and gameplay rules.
 export class AreaRenderer {
@@ -20,6 +21,7 @@ export class AreaRenderer {
 
   render(area) {
     this.clear();
+    const language = this.scene.save.settings?.language || "en";
     const g = this.add(this.scene.add.graphics().setDepth(0));
     g.fillStyle(area.colors.ground).fillRect(0, 0, WORLD_SIZE.width, WORLD_SIZE.height);
     this.drawPaperTexture(g, area.colors.shadow);
@@ -29,7 +31,7 @@ export class AreaRenderer {
     if (area.id === "sanctuary") this.drawSanctuary(g, area);
     else this[`draw${capitalize(area.id)}`](g, area);
 
-    this.add(this.scene.add.text(35, 28, area.name, {
+    this.add(this.scene.add.text(35, 28, areaName(area.name, language), {
       fontFamily: "Georgia, serif",
       fontStyle: "bold",
       fontSize: "29px",
@@ -84,7 +86,8 @@ export class AreaRenderer {
     g.lineStyle(3, 0xfff0b5, 0.6).strokeCircle(x, y - 10, 22);
     g.fillStyle(0xede0ad).fillRect(x - 17, y - 25, 34, 29);
     g.lineStyle(2, 0x72533c).strokeRect(x - 17, y - 25, 34, 29);
-    this.add(this.scene.add.text(x, y + 86, "Guardian Workbench", {
+    const language = this.scene.save.settings?.language || "en";
+    this.add(this.scene.add.text(x, y + 86, t("guardianWorkbench", language), {
       fontFamily: "Trebuchet MS",
       fontStyle: "bold",
       fontSize: "13px",
@@ -101,7 +104,8 @@ export class AreaRenderer {
     g.lineStyle(5, guardian.color, 0.9).strokeRoundedRect(gate.x - 58, gate.y - 48, 116, 96, 24);
     g.lineStyle(3, guardian.accent, 0.7).strokeCircle(gate.x, gate.y - 4, 31);
     this.add(this.scene.add.image(gate.x, gate.y - 5, guardian.spriteKey).setDisplaySize(66, 66).setDepth(3));
-    this.add(this.scene.add.text(gate.x, gate.y + 48, target.name, {
+    const language = this.scene.save.settings?.language || "en";
+    this.add(this.scene.add.text(gate.x, gate.y + 48, areaName(target.name, language), {
       fontFamily: "Trebuchet MS",
       fontStyle: "bold",
       fontSize: "12px",
@@ -248,7 +252,8 @@ export class AreaRenderer {
     g.lineStyle(3, area.colors.accent, 0.8).strokeCircle(x, y, 28);
     g.fillStyle(0xfff1b3, 0.9).fillTriangle(x - 12, y, x + 8, y - 15, x + 8, y - 5);
     g.fillTriangle(x + 8, y - 15, x + 8, y + 15, x + 20, y);
-    this.add(this.scene.add.text(x, y + 58, "Return to Sanctuary", {
+    const language = this.scene.save.settings?.language || "en";
+    this.add(this.scene.add.text(x, y + 58, t("returnToSanctuary", language), {
       fontFamily: "Trebuchet MS",
       fontStyle: "bold",
       fontSize: "12px",

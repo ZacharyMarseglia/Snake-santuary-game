@@ -1,17 +1,19 @@
 import { snakes } from "../data/snakes.js";
 import { upgrades } from "../data/upgrades.js";
 import { InventoryManager } from "../domain/InventoryManager.js";
+import { content, itemName, symbolName, t } from "../i18n/localization.js";
 
-export function SanctuaryPanel({ completed, onUpgrade, available, inventory }) {
+export function SanctuaryPanel({ completed, onUpgrade, available, inventory, language = "en" }) {
   const items = new InventoryManager(inventory);
   return (
     <section>
-      <div className="section-heading"><h2>Sanctuary</h2><span>{completed.length}/5</span></div>
-      <p className="tiny-copy">Repairs consume crafted relics from the Guardian Workbench.</p>
+      <div className="section-heading"><h2>{t("sanctuary", language)}</h2><span>{completed.length}/5</span></div>
+      <p className="tiny-copy">{t("sanctuaryRepairHelp", language)}</p>
       <div className="upgrade-list">
         {upgrades.map((upgrade) => {
           const done = completed.includes(upgrade.id);
           const guardian = snakes[upgrade.guardian];
+          const name = content("upgrades", upgrade.id, "name", upgrade.name, language);
           return (
             <button
               key={upgrade.id}
@@ -22,17 +24,20 @@ export function SanctuaryPanel({ completed, onUpgrade, available, inventory }) {
             >
               <img src={guardian.sprite} alt="" />
               <span>
-                <strong>{done ? "Restored: " : ""}{upgrade.name}</strong>
+                <strong>{done ? t("restoredPrefix", language) : ""}{name}</strong>
                 <small>{done
-                  ? `${upgrade.guardian}'s ${upgrade.symbol} mark is glowing`
-                  : Object.entries(upgrade.cost).map(([name, amount]) => `${items.count(name)}/${amount} ${name}`).join(" / ")}
+                  ? t("guardianMarkGlowing", language, {
+                    guardian: upgrade.guardian,
+                    symbol: symbolName(upgrade.symbol, language)
+                  })
+                  : Object.entries(upgrade.cost).map(([item, amount]) => `${items.count(item)}/${amount} ${itemName(item, language)}`).join(" / ")}
                 </small>
               </span>
             </button>
           );
         })}
       </div>
-      {!available && <p className="sanctuary-return-note">Return home to complete sanctuary repairs.</p>}
+      {!available && <p className="sanctuary-return-note">{t("returnHomeRepairs", language)}</p>}
     </section>
   );
 }

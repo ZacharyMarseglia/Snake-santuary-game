@@ -1,3 +1,5 @@
+import { defaultLanguage, normalizeLanguage, supportedLanguageIds } from "../i18n/localization.js";
+
 // GRASP Pure Fabrication: persistence details stay outside React and Phaser.
 export class SaveService {
   constructor(apiClient, storage = localStorage) {
@@ -5,6 +7,7 @@ export class SaveService {
     this.storage = storage;
     this.playerKey = "scaleGuardiansPlayerId";
     this.narrationSettingsKey = "scaleGuardiansNarrationSettings";
+    this.languageKey = "scaleGuardiansLanguage";
   }
 
   playerId() {
@@ -14,7 +17,7 @@ export class SaveService {
   localNarrationSettings() {
     try {
       const stored = JSON.parse(this.storage.getItem(this.narrationSettingsKey) || "{}");
-      const { narrationSettingsVersion, ...settings } = stored;
+      const { narrationSettingsVersion, language: _legacyLanguage, ...settings } = stored;
       if (narrationSettingsVersion !== 2) {
         if (settings.narrationRate == null || settings.narrationRate === 0.9) {
           settings.narrationRate = 0.82;
@@ -29,11 +32,28 @@ export class SaveService {
     }
   }
 
+  localLanguage() {
+    const storedLanguage = this.storage.getItem(this.languageKey);
+    return supportedLanguageIds.has(storedLanguage)
+      ? storedLanguage
+      : defaultLanguage;
+  }
+
+  saveLanguage(language) {
+    const normalized = normalizeLanguage(language);
+    this.storage.setItem(this.languageKey, normalized);
+    return normalized;
+  }
+
   saveNarrationSettings(settings = {}) {
     const narrationSettings = {
       narrationSettingsVersion: 2,
       narration: Boolean(settings.narration),
       narrationVoice: settings.narrationVoice || "",
+      narrationVoices: {
+        en: settings.narrationVoices?.en || "",
+        zh: settings.narrationVoices?.zh || ""
+      },
       narrationRate: Number(settings.narrationRate) || 0.82,
       narrationPitch: Number(settings.narrationPitch) || 1.12,
       narrationVolume: Number.isFinite(Number(settings.narrationVolume))

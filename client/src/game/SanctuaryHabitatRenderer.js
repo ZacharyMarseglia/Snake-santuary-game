@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { snakes } from "../data/snakes.js";
+import { content, t } from "../i18n/localization.js";
 
 // GRASP Pure Fabrication: Phaser habitat visuals stay separate from unlock and bond rules.
 export class SanctuaryHabitatRenderer {
@@ -33,7 +34,13 @@ export class SanctuaryHabitatRenderer {
     if (!unlocked) portrait.setTint(0x77786f);
     container.add(portrait);
 
-    const label = this.scene.add.text(0, 62, unlocked ? habitat.name : `Sleeping ${habitat.name}`, {
+    const language = this.scene.save.settings?.language || "en";
+    const habitatName = content("habitats", habitat.id, "name", habitat.name, language);
+    const label = this.scene.add.text(
+      0,
+      62,
+      unlocked ? habitatName : t("sleepingPrefix", language, { name: habitatName }),
+      {
       fontFamily: "Fredoka, sans-serif",
       fontSize: "12px",
       color: unlocked ? snake.theme.ink : "#62665f",
@@ -201,10 +208,12 @@ export class SanctuaryHabitatRenderer {
 
   promptNear(x, y) {
     const view = this.nearest(x, y);
+    const language = this.scene.save.settings?.language || "en";
     if (!view) return "";
+    const habitatName = content("habitats", view.habitat.id, "name", view.habitat.name, language);
     return view.unlocked
-      ? `Press E to visit ${view.habitat.guardian}'s ${view.habitat.name}.`
-      : `Press E to inspect ${view.habitat.guardian}'s sleeping habitat.`;
+      ? t("visitHabitatPrompt", language, { guardian: view.habitat.guardian, habitat: habitatName })
+      : t("inspectHabitatPrompt", language, { guardian: view.habitat.guardian });
   }
 
   clear() {

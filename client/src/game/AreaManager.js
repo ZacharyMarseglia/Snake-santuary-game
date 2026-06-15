@@ -1,4 +1,5 @@
 import { guardianAccessMessage } from "../data/areas.js";
+import { areaName, t } from "../i18n/localization.js";
 
 // GRASP Information Expert: area access and portal interaction live with area data.
 export class AreaManager {
@@ -16,11 +17,11 @@ export class AreaManager {
     return Boolean(area) && (!area.guardian || area.guardian === guardianName);
   }
 
-  enter(areaId, guardianName) {
+  enter(areaId, guardianName, language = "en") {
     const area = this.areas[areaId];
-    if (!area) return { ok: false, message: "That path is still hidden." };
+    if (!area) return { ok: false, message: t("pathHidden", language) };
     if (!this.canEnter(areaId, guardianName)) {
-      return { ok: false, message: guardianAccessMessage(area) };
+      return { ok: false, message: guardianAccessMessage(area, language) };
     }
     this.currentAreaId = areaId;
     return { ok: true, area };
@@ -47,14 +48,17 @@ export class AreaManager {
     return null;
   }
 
-  promptFor(interaction, guardianName) {
+  promptFor(interaction, guardianName, language = "en") {
     if (!interaction) return "";
-    if (interaction.type === "workbench") return "Press E to use the Guardian Workbench.";
-    if (interaction.type === "return") return "Press E to return to the Sanctuary.";
+    if (interaction.type === "workbench") return t("workbenchPrompt", language);
+    if (interaction.type === "return") return t("returnPrompt", language);
     if (!this.canEnter(interaction.targetArea.id, guardianName)) {
-      return guardianAccessMessage(interaction.targetArea);
+      return guardianAccessMessage(interaction.targetArea, language);
     }
-    return `Press E to enter ${interaction.targetArea.name} with ${guardianName}.`;
+    return t("enterAreaPrompt", language, {
+      area: areaName(interaction.targetArea.name, language),
+      guardian: guardianName
+    });
   }
 }
 

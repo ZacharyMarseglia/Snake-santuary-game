@@ -4,16 +4,19 @@ import { habitats, newSave, quests, recipes, snakes, upgrades } from "./gameData
 import { areas } from "./data/areas.js";
 import { challengeByAreaId, challengeByStoryName, challenges } from "./data/challenges.js";
 import { biomeQuizByStoryName } from "./data/education.js";
+import { evolutionScenes } from "./data/evolutionScenes.js";
+import { abilityName, areaName, content, formatItems, itemName, t } from "./i18n/localization.js";
 import { GameState } from "./domain/GameState.js";
 import { ChallengeManager } from "./domain/ChallengeManager.js";
 import { CraftingManager } from "./domain/CraftingManager.js";
+import { EvolutionManager } from "./domain/EvolutionManager.js";
 import { QuestManager } from "./domain/QuestManager.js";
 import { SanctuaryManager } from "./domain/SanctuaryManager.js";
 import { SanctuaryHabitatManager } from "./domain/SanctuaryHabitatManager.js";
 import { StoryManager } from "./domain/StoryManager.js";
 import { ApiClient } from "./services/ApiClient.js";
 import { SaveService } from "./services/SaveService.js";
-import { narrationService } from "./services/NarrationService.js";
+import { narrationManager } from "./services/NarrationManager.js";
 import { EvolutionPanel } from "./components/EvolutionPanel.jsx";
 import { GuardianPanel } from "./components/GuardianPanel.jsx";
 import { InventoryPanel } from "./components/InventoryPanel.jsx";
@@ -27,6 +30,8 @@ import { ChallengeTracker } from "./components/ChallengeTracker.jsx";
 
 function mergeSave(value) {
   const base = newSave(value?.playerName);
+  const localNarrationSettings = saveService.localNarrationSettings();
+  const localLanguage = saveService.localLanguage();
   const positionsByArea = { ...base.positionsByArea, ...value?.positionsByArea };
   const oldSanctuaryDefault = positionsByArea.sanctuary?.x === 550 && positionsByArea.sanctuary?.y === 430;
   if (oldSanctuaryDefault) positionsByArea.sanctuary = base.positionsByArea.sanctuary;
@@ -44,7 +49,17 @@ function mergeSave(value) {
     challengeProgress: { ...base.challengeProgress, ...value?.challengeProgress },
     habitatStates: { ...base.habitatStates, ...value?.habitatStates },
     snakeEvolutionStatus: { ...base.snakeEvolutionStatus, ...value?.snakeEvolutionStatus },
-    settings: { ...base.settings, ...value?.settings, ...saveService.localNarrationSettings() }
+    settings: {
+      ...base.settings,
+      ...value?.settings,
+      ...localNarrationSettings,
+      language: localLanguage,
+      narrationVoices: {
+        ...base.settings.narrationVoices,
+        ...value?.settings?.narrationVoices,
+        ...localNarrationSettings.narrationVoices
+      }
+    }
   };
   return habitatManager.synchronize(merged);
 }
@@ -55,6 +70,7 @@ const storyManager = new StoryManager();
 const craftingManager = new CraftingManager(recipes);
 const challengeManager = new ChallengeManager(challenges);
 const habitatManager = new SanctuaryHabitatManager(habitats);
+const evolutionManager = new EvolutionManager(evolutionScenes);
 const saveService = new SaveService(new ApiClient());
 
 export default function App() {
@@ -67,13 +83,14 @@ export default function App() {
   const [currentAreaId, setCurrentAreaId] = useState("sanctuary");
   const [worldPrompt, setWorldPrompt] = useState("");
   const [sanctuaryCelebration, setSanctuaryCelebration] = useState(null);
-  const [saveStatus, setSaveStatus] = useState("Not saved");
+  const [saveStatus, setSaveStatus] = useState("notSaved");
   const [menuError, setMenuError] = useState("");
   const [paused, setPaused] = useState(false);
   const gameRef = useRef(null);
   const saveTimer = useRef(null);
   const celebrationTimer = useRef(null);
   const loadedRef = useRef(false);
+  const language = save.settings?.language || "en";
 
   const activeQuest = useMemo(
     () => questManager.active(save.completedQuests),
@@ -84,6 +101,10 @@ export default function App() {
   const activeChallengeProgress = activeChallenge
     ? challengeManager.progress(save, activeChallenge.id)
     : null;
+  const selectedEvolutionProfile = useMemo(
+    () => evolutionManager.profile(save, save.selectedSnake),
+    [save.selectedSnake, save.challengeProgress, save.inventory, save.snakeEvolutionStatus]
+  );
 
   const showToast = useCallback((message) => {
     setToast(message);
@@ -93,11 +114,15 @@ export default function App() {
 
   useEffect(() => () => window.clearTimeout(celebrationTimer.current), []);
   useEffect(() => {
-    narrationService.stop();
+    narrationManager.stop();
   }, [screen]);
   useEffect(() => {
     saveService.saveNarrationSettings(save.settings);
   }, [save.settings]);
+  useEffect(() => {
+    document.documentElement.lang = save.settings.language === "zh" ? "zh-CN" : "en";
+    narrationManager.stop();
+  }, [save.settings.language]);
 
   const openModal = useCallback((type) => {
     audioManager.play("click");
@@ -106,14 +131,22 @@ export default function App() {
 
   const closeModal = useCallback(() => {
     audioManager.play("click");
-    narrationService.stop();
+    narrationManager.stop();
     setModal(null);
+  }, []);
+
+  const changeLanguage = useCallback((nextLanguage) => {
+    const language = saveService.saveLanguage(nextLanguage);
+    setSave((current) => ({
+      ...current,
+      settings: { ...current.settings, language }
+    }));
   }, []);
 
   const startGame = async () => {
     const name = playerName.trim();
     if (!name) {
-      setMenuError("Please name your guardian first.");
+      setMenuError("nameRequired");
       return;
     }
     audioManager.play("click");
@@ -129,7 +162,7 @@ export default function App() {
       setPaused(false);
       setScreen("game");
     } catch {
-      setMenuError("The save service is not available. Make sure the server is running.");
+      setMenuError("saveUnavailable");
     }
   };
 
@@ -147,7 +180,7 @@ export default function App() {
       setPaused(false);
       setScreen("game");
     } catch {
-      setMenuError("That local save could not be loaded. Start a new adventure.");
+      setMenuError("saveNotFound");
     }
   };
 
@@ -157,12 +190,12 @@ export default function App() {
     try {
       data = await saveService.reset(playerId);
     } catch {
-      return showToast("Reset could not be completed.");
+      return showToast(t("resetFailed", language));
     }
     setSave(mergeSave(data.save));
     setModal(null);
     audioManager.play("upgrade");
-    showToast("A fresh sanctuary adventure has begun.");
+    showToast(t("freshAdventure", language));
   };
 
   useEffect(() => {
@@ -176,13 +209,13 @@ export default function App() {
   useEffect(() => {
     if (!playerId || !loadedRef.current || screen !== "game") return;
     window.clearTimeout(saveTimer.current);
-    setSaveStatus("Saving...");
+    setSaveStatus("saving");
     saveTimer.current = window.setTimeout(async () => {
       try {
         await saveService.save(playerId, save);
-        setSaveStatus("Saved");
+        setSaveStatus("saved");
       } catch {
-        setSaveStatus("Save failed");
+        setSaveStatus("saveFailed");
       }
     }, 700);
     return () => window.clearTimeout(saveTimer.current);
@@ -206,7 +239,7 @@ export default function App() {
         return new GameState(current, sanctuaryManager, storyManager).collect(event.item);
       });
       audioManager.play("pickup");
-      showToast(`+1 ${event.item.name}`);
+      showToast(`+1 ${itemName(event.item.name, language)}`);
     }
     if (event.type === "position") {
       setSave((current) => ({
@@ -217,7 +250,7 @@ export default function App() {
     }
     if (event.type === "ability") {
       audioManager.play("ability");
-      if (!event.harvested) showToast(`${event.name}!`);
+      if (!event.harvested) showToast(`${abilityName(event.name, language)}!`);
     }
     if (event.type === "warning") {
       audioManager.play("pause");
@@ -252,7 +285,7 @@ export default function App() {
       }
     }
     if (event.type === "area" && event.area) {
-      narrationService.stop();
+      narrationManager.stop();
       setCurrentAreaId(event.area.id);
       setSave((current) => ({ ...current, currentArea: event.area.id }));
       setSave((current) => {
@@ -277,16 +310,16 @@ export default function App() {
     }
     if (event.type === "pause") {
       audioManager.play("pause");
-      narrationService.stop();
+      narrationManager.stop();
       if (modal) setModal(null);
       else setPaused((current) => !current);
     }
   }, [showToast, modal, save]);
 
   const buyUpgrade = (upgrade) => {
-    if (currentAreaId !== "sanctuary") return showToast("Return to the Sanctuary to complete this repair.");
+    if (currentAreaId !== "sanctuary") return showToast(t("returnRepairWarning", language));
     const next = new GameState(save, sanctuaryManager, storyManager).purchaseUpgrade(upgrade.id);
-    if (!next) return showToast("Craft the required guardian relic at the Workbench first.");
+    if (!next) return showToast(t("craftRepairWarning", language));
     setSave(habitatManager.synchronize(next));
     audioManager.play("upgrade");
     setSanctuaryCelebration(upgrade);
@@ -298,8 +331,10 @@ export default function App() {
     const result = new GameState(save, sanctuaryManager, storyManager, craftingManager).craft(recipe.id);
     if (!result) {
       const missing = craftingManager.missingMaterials(save, recipe.id);
-      const details = missing.map((item) => `${item.missing} ${item.name}`).join(", ");
-      return showToast(details ? `Missing: ${details}` : "This recipe is not unlocked yet.");
+      const details = missing.map((item) => `${item.missing} ${itemName(item.name, language)}`).join(language === "zh" ? "、" : ", ");
+      return showToast(details
+        ? t("missingPrefix", language, { items: details })
+        : t("recipeNotUnlocked", language));
     }
     setSave(result.save);
     audioManager.play("craft");
@@ -307,20 +342,27 @@ export default function App() {
       audioManager.play("story");
       setModal({ type: "craftingStory", recipe: result.recipe });
     } else {
-      showToast(`Crafted ${recipe.name}!`);
+      const recipeName = content("recipes", recipe.id, "name", recipe.name, language);
+      showToast(t("crafted", language, { name: recipeName }));
     }
   };
 
   const evolveSnake = (name) => {
-    const next = new GameState(save, sanctuaryManager, storyManager).evolve(name);
-    if (!next) return showToast("Complete 3 upgrades and restore the elemental shrine first.");
-    setSave(next);
+    const result = new GameState(
+      save,
+      sanctuaryManager,
+      storyManager,
+      null,
+      evolutionManager
+    ).evolve(name);
+    if (!result.ok) return showToast(result.message);
+    setSave(result.save);
     audioManager.play("evolve");
-    setModal({ type: "evolution", snakeName: name });
+    setModal({ type: "evolution", scene: result.scene });
   };
 
   const continueStory = (biome) => {
-    narrationService.stop();
+    narrationManager.stop();
     const quiz = biomeQuizByStoryName[biome.name];
     if (quiz && !save.completedElementQuizzes.includes(quiz.id)) {
       setModal({ type: "quiz", quiz });
@@ -340,8 +382,8 @@ export default function App() {
       new GameState(current, sanctuaryManager, storyManager).completeElementQuiz(quiz)
     ));
     audioManager.play("upgrade");
-    const reward = Object.entries(quiz.reward).map(([name, amount]) => `+${amount} ${name}`).join(", ");
-    showToast(`Correct! ${reward}`);
+    const reward = formatItems(quiz.reward, language, "+");
+    showToast(t("correctReward", language, { reward }));
   };
 
   const continueQuiz = (quiz) => {
@@ -358,12 +400,13 @@ export default function App() {
     setSave((current) => challengeManager.start(current, challenge.id));
     audioManager.play("start");
     setModal(null);
-    showToast(`${challenge.title} started!`);
+    const title = content("challenges", challenge.id, "title", challenge.title, language);
+    showToast(t("challengeStarted", language, { title }));
   };
 
   const returnToMenu = () => {
     audioManager.play("click");
-    narrationService.stop();
+    narrationManager.stop();
     setModal(null);
     setPaused(false);
     setScreen("menu");
@@ -376,25 +419,25 @@ export default function App() {
       <main className="menu-page">
         <section className="title-card">
           <div className="crest">SG</div>
-          <p className="eyebrow">A cozy science adventure</p>
+          <p className="eyebrow">{t("cozyScienceAdventure", language)}</p>
           <h1>The Rise of the<br /><span>Scale Guardians</span></h1>
-          <p className="menu-copy">Explore a painted world, heal seven habitats, and help six tiny elemental snakes grow into legendary guardians.</p>
+          <p className="menu-copy">{t("menuDescription", language)}</p>
           <div className="menu-guardian-ribbon" aria-label="The six Scale Guardians">
             {Object.entries(snakes).map(([name, snake]) => (
               <img key={name} src={snake.sprite} alt={name} title={name} />
             ))}
           </div>
           <label className="name-field">
-            Guardian name
-            <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} maxLength={30} placeholder="Enter your name" />
+            {t("guardianName", language)}
+            <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} maxLength={30} placeholder={t("enterName", language)} />
           </label>
-          {menuError && <p className="error-text">{menuError}</p>}
+          {menuError && <p className="error-text">{t(menuError, language)}</p>}
           <div className="menu-buttons">
-            <button className="primary-button" onClick={startGame}>Start Game</button>
-            <button onClick={continueGame} disabled={!playerId}>Continue Game</button>
-            <button onClick={() => openModal("guide")}>Character Guide</button>
-            <button onClick={() => openModal("storybook")}>Storybook</button>
-            <button onClick={() => openModal("settings")}>Settings</button>
+            <button className="primary-button" onClick={startGame}>{t("startGame", language)}</button>
+            <button onClick={continueGame} disabled={!playerId}>{t("continueGame", language)}</button>
+            <button onClick={() => openModal("guide")}>{t("characterGuide", language)}</button>
+            <button onClick={() => openModal("storybook")}>{t("storybook", language)}</button>
+            <button onClick={() => openModal("settings")}>{t("settings", language)}</button>
           </div>
         </section>
         <div className="menu-guardian-stage" aria-hidden="true">
@@ -405,7 +448,7 @@ export default function App() {
             </figure>
           ))}
         </div>
-        {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} onQuizContinue={continueQuiz} onStartChallenge={startChallenge} />}
+        {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} onLanguageChange={changeLanguage} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} onQuizContinue={continueQuiz} onStartChallenge={startChallenge} />}
       </main>
     );
   }
@@ -415,14 +458,17 @@ export default function App() {
       <header className="game-header">
         <button className="brand-button" onClick={returnToMenu}>Scale Guardians</button>
         <div className="location">
-          <span>{currentArea.guardian ? `Required: ${currentArea.guardian}` : "Any guardian welcome"}</span>
-          <strong>{currentArea.name}</strong>
+          <span>{currentArea.guardian
+            ? t("requiredGuardian", language, { guardian: currentArea.guardian })
+            : t("anyGuardianWelcome", language)}
+          </span>
+          <strong>{areaName(currentArea.name, language)}</strong>
         </div>
         <div className="header-actions">
-          <span className={`save-state ${saveStatus === "Save failed" ? "bad" : ""}`}>{saveStatus}</span>
-          <button onClick={() => openModal("storybook")}>Storybook</button>
-          <button onClick={() => openModal("settings")}>Settings</button>
-          <button className="pause-button" onClick={() => setPaused(true)}>Pause</button>
+          <span className={`save-state ${saveStatus === "saveFailed" ? "bad" : ""}`}>{t(saveStatus, language)}</span>
+          <button onClick={() => openModal("storybook")}>{t("storybook", language)}</button>
+          <button onClick={() => openModal("settings")}>{t("settings", language)}</button>
+          <button className="pause-button" onClick={() => setPaused(true)}>{t("pause", language)}</button>
         </div>
       </header>
 
@@ -431,7 +477,7 @@ export default function App() {
           save={save}
           currentAreaId={currentAreaId}
           onSelect={(name) => {
-            if (currentAreaId !== "sanctuary") return showToast("Return to the Sanctuary to change guardians.");
+            if (currentAreaId !== "sanctuary") return showToast(t("changeGuardianWarning", language));
             audioManager.play("click");
             setSave((current) => ({ ...current, selectedSnake: name }));
           }}
@@ -444,17 +490,17 @@ export default function App() {
           {worldPrompt && <div className="harvest-prompt">{worldPrompt}</div>}
           {currentAreaId !== "sanctuary" && (
             <button className="return-sanctuary-button" onClick={() => gameRef.current?.returnToSanctuary()}>
-              Return to Sanctuary
+              {t("returnToSanctuary", language)}
             </button>
           )}
-          <div className="controls-note">Move: WASD / arrows &middot; Ability, harvest, restore: Space &middot; Interact: E &middot; Pause: Esc or P</div>
+          <div className="controls-note">{t("controlsNote", language)}</div>
           {sanctuaryCelebration && (
             <div className="sanctuary-upgrade-banner" style={{ "--upgrade": sanctuaryCelebration.color, "--upgrade-soft": sanctuaryCelebration.softColor }}>
               <img src={snakes[sanctuaryCelebration.guardian].sprite} alt="" />
               <span>
-                <small>Sanctuary Upgraded!</small>
-                <strong>{sanctuaryCelebration.name}</strong>
-                <em>{sanctuaryCelebration.story}</em>
+                <small>{t("sanctuaryUpgraded", language)}</small>
+                <strong>{content("upgrades", sanctuaryCelebration.id, "name", sanctuaryCelebration.name, language)}</strong>
+                <em>{content("upgrades", sanctuaryCelebration.id, "story", sanctuaryCelebration.story, language)}</em>
               </span>
             </div>
           )}
@@ -462,12 +508,12 @@ export default function App() {
         </section>
 
         <aside className="right-panel panel">
-          <WorldMap currentAreaId={currentAreaId} selectedSnake={save.selectedSnake} />
-          <ChallengeTracker challenge={activeChallenge} progress={activeChallengeProgress} />
-          <QuestTracker quest={activeQuest} progress={progress} />
-          <InventoryPanel inventory={save.inventory} />
-          <SanctuaryPanel completed={save.sanctuaryUpgrades} onUpgrade={buyUpgrade} available={currentAreaId === "sanctuary"} inventory={save.inventory} />
-          <EvolutionPanel save={save} onEvolve={evolveSnake} />
+          <WorldMap currentAreaId={currentAreaId} selectedSnake={save.selectedSnake} language={language} />
+          <ChallengeTracker challenge={activeChallenge} progress={activeChallengeProgress} language={language} />
+          <QuestTracker quest={activeQuest} progress={progress} language={language} />
+          <InventoryPanel inventory={save.inventory} language={language} />
+          <SanctuaryPanel completed={save.sanctuaryUpgrades} onUpgrade={buyUpgrade} available={currentAreaId === "sanctuary"} inventory={save.inventory} language={language} />
+          <EvolutionPanel save={save} profile={selectedEvolutionProfile} onEvolve={evolveSnake} />
         </aside>
       </section>
 
@@ -481,9 +527,10 @@ export default function App() {
           onStorybook={() => openModal("storybook")}
           onGuide={() => openModal("guide")}
           onMainMenu={returnToMenu}
+          language={language}
         />
       )}
-      {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} onQuizContinue={continueQuiz} onStartChallenge={startChallenge} />}
+      {modal && <Modal modal={modal} save={save} onClose={closeModal} setSave={setSave} onLanguageChange={changeLanguage} resetGame={resetGame} hasPlayer={Boolean(saveService.playerId())} onCraft={craftRecipe} onReturnToCrafting={() => setModal({ type: "crafting" })} onStoryContinue={continueStory} onQuizCorrect={completeQuiz} onQuizContinue={continueQuiz} onStartChallenge={startChallenge} />}
     </main>
   );
 }

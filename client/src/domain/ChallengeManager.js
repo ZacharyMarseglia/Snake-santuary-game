@@ -1,4 +1,5 @@
 import { InventoryManager } from "./InventoryManager.js";
+import { challengeTargetLabel, content, t } from "../i18n/localization.js";
 
 // GRASP Information Expert: challenge rules live with challenge progress data.
 export class ChallengeManager {
@@ -37,22 +38,25 @@ export class ChallengeManager {
   }
 
   advance(save, challengeId, targetId) {
+    const language = save.settings?.language || "en";
     const challenge = this.definition(challengeId);
-    if (!challenge) return this.rejected(save, "That restoration challenge is still hidden.");
+    if (!challenge) return this.rejected(save, t("challengeHidden", language));
     const current = this.progress(save, challengeId);
-    if (!current.started) return this.rejected(save, "Open the restoration challenge before using your ability here.");
-    if (current.completed) return this.rejected(save, "This biome restoration challenge is already complete.");
+    if (!current.started) return this.rejected(save, t("challengeNotStarted", language));
+    if (current.completed) return this.rejected(save, t("challengeAlreadyComplete", language));
 
     const target = challenge.targets.find((candidate) => candidate.id === targetId);
-    if (!target) return this.rejected(save, "That restoration point could not be found.");
+    if (!target) return this.rejected(save, t("restorationPointMissing", language));
+    const targetLabel = challengeTargetLabel(challenge.id, target, language);
     if (current.completedTargetIds.includes(targetId)) {
-      return this.rejected(save, `${target.label} is already restored.`);
+      return this.rejected(save, t("targetAlreadyRestored", language, { target: targetLabel }));
     }
 
     if (challenge.ordered) {
       const expected = challenge.targets[current.completedTargetIds.length];
       if (expected?.id !== targetId) {
-        return this.rejected(save, `The circuit needs ${expected.label} next. Follow the numbers from 1 to 4.`);
+        const expectedLabel = challengeTargetLabel(challenge.id, expected, language);
+        return this.rejected(save, t("circuitNext", language, { target: expectedLabel }));
       }
     }
 
@@ -84,8 +88,14 @@ export class ChallengeManager {
       progress: completedTargetIds.length,
       target: challenge.targets.length,
       message: completed
-        ? `${challenge.title} complete!`
-        : `${target.label} restored. ${completedTargetIds.length} of ${challenge.targets.length}.`
+        ? t("challengeCompleteMessage", language, {
+          title: content("challenges", challenge.id, "title", challenge.title, language)
+        })
+        : t("targetRestoredProgress", language, {
+          target: targetLabel,
+          current: completedTargetIds.length,
+          total: challenge.targets.length
+        })
     };
   }
 

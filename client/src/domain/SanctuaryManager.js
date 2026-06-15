@@ -17,8 +17,4 @@ export class SanctuaryManager {
       sanctuaryUpgrades: [...save.sanctuaryUpgrades, upgradeId]
     };
   }
-
-  canEvolve(save) {
-    return save.sanctuaryUpgrades.length >= 3 && save.sanctuaryUpgrades.includes("shrine");
-  }
 }

@@ -12,6 +12,7 @@ import { ResourceManager } from "./game/ResourceManager.js";
 import { SanctuaryRenderer } from "./game/SanctuaryRenderer.js";
 import { SanctuaryHabitatRenderer } from "./game/SanctuaryHabitatRenderer.js";
 import { SnakeRenderer } from "./game/SnakeRenderer.js";
+import { abilityName, areaName, t } from "./i18n/localization.js";
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -134,7 +135,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   enterArea(areaId) {
-    const result = this.areaManager.enter(areaId, this.save.selectedSnake);
+    const result = this.areaManager.enter(
+      areaId,
+      this.save.selectedSnake,
+      this.save.settings?.language || "en"
+    );
     if (!result.ok) {
       this.eventsOut({ type: "warning", message: result.message });
       this.cameras.main.shake(170, 0.004);
@@ -162,7 +167,10 @@ export class GameScene extends Phaser.Scene {
         this.eventsOut({ type: "habitat", guardian: habitatView.habitat.guardian });
         return;
       }
-      this.eventsOut({ type: "warning", message: "Move closer to a biome gate, habitat room, workbench, or return portal." });
+      this.eventsOut({
+        type: "warning",
+        message: t("moveCloserInteraction", this.save.settings?.language || "en")
+      });
       return;
     }
     if (interaction.type === "workbench") {
@@ -213,18 +221,22 @@ export class GameScene extends Phaser.Scene {
 
   updatePrompt() {
     const interaction = this.areaManager.interactionNear(this.player.x, this.player.y);
-    const portalPrompt = this.areaManager.promptFor(interaction, this.save.selectedSnake);
+    const portalPrompt = this.areaManager.promptFor(
+      interaction,
+      this.save.selectedSnake,
+      this.save.settings?.language || "en"
+    );
     const habitatPrompt = this.habitatRenderer?.promptNear(this.player.x, this.player.y) || "";
     const harvestPrompt = this.resourceManager?.promptNear(
       this.player.x,
       this.player.y,
-      this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 155 : 118,
+      this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 170 : 118,
       this.save.selectedSnake
     ) || "";
     const challengePrompt = this.challengeRenderer?.promptNear(
       this.player.x,
       this.player.y,
-      this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 155 : 118
+      this.save.snakeEvolutionStatus[this.save.selectedSnake] ? 170 : 118
     ) || "";
     this.setPrompt(portalPrompt || habitatPrompt || challengePrompt || harvestPrompt);
   }
@@ -241,19 +253,32 @@ export class GameScene extends Phaser.Scene {
     const name = this.save.selectedSnake;
     const snake = snakes[name];
     const area = this.areaManager.current();
+    const language = this.save.settings?.language || "en";
 
     if (area.guardian && area.guardian !== name) {
-      this.eventsOut({ type: "warning", message: `Wrong biome: ${area.name} needs ${area.guardian}.` });
+      this.eventsOut({
+        type: "warning",
+        message: t("wrongBiome", language, {
+          area: areaName(area.name, language),
+          guardian: area.guardian
+        })
+      });
       return;
     }
     if (now < this.abilityReadyAt) {
       const seconds = Math.max(0.1, (this.abilityReadyAt - now) / 1000).toFixed(1);
-      this.eventsOut({ type: "warning", message: `${snake.ability} is cooling down for ${seconds}s.` });
+      this.eventsOut({
+        type: "warning",
+        message: t("abilityCooldown", language, {
+          ability: abilityName(snake.ability, language),
+          seconds
+        })
+      });
       return;
     }
 
     const evolved = this.save.snakeEvolutionStatus[name];
-    const abilityRadius = evolved ? 155 : 118;
+    const abilityRadius = evolved ? 170 : 118;
     const challengeTarget = this.challengeRenderer?.nearest(
       this.player.x,
       this.player.y,
@@ -268,9 +293,37 @@ export class GameScene extends Phaser.Scene {
       worldHeight: WORLD_SIZE.height
     });
 
-    this.abilityReadyAt = now + (evolved ? 650 : 1050);
+    this.abilityReadyAt = now + (evolved ? 560 : 1050);
     const ring = this.add.circle(this.player.x, this.player.y, 25, snake.accent, 0.25).setDepth(7);
-    this.tweens.add({ targets: ring, radius: evolved ? 165 : 125, alpha: 0, duration: 520, onComplete: () => ring.destroy() });
+    this.tweens.add({ targets: ring, radius: evolved ? 180 : 125, alpha: 0, duration: 520, onComplete: () => ring.destroy() });
+    if (evolved) {
+      const outerRing = this.add.circle(this.player.x, this.player.y, 38, snake.color, 0.04)
+        .setStrokeStyle(5, snake.accent, 0.6)
+        .setDepth(7);
+      this.tweens.add({
+        targets: outerRing,
+        radius: 205,
+        alpha: 0,
+        angle: 90,
+        duration: 700,
+        ease: "Cubic.easeOut",
+        onComplete: () => outerRing.destroy()
+      });
+      for (let index = 0; index < 8; index++) {
+        const angle = (Math.PI * 2 * index) / 8;
+        const spark = this.add.circle(this.player.x, this.player.y, index % 2 ? 4 : 6, snake.accent, 0.9).setDepth(9);
+        this.tweens.add({
+          targets: spark,
+          x: this.player.x + Math.cos(angle) * 178,
+          y: this.player.y + Math.sin(angle) * 178,
+          alpha: 0,
+          scale: 0.35,
+          duration: 620,
+          ease: "Cubic.easeOut",
+          onComplete: () => spark.destroy()
+        });
+      }
+    }
 
     if (challengeTarget) {
       this.challengeRenderer.animateAttempt(challengeTarget);
@@ -289,11 +342,11 @@ export class GameScene extends Phaser.Scene {
         harvested: result.harvest.item.name
       });
     } else if (!this.resourceManager) {
-      this.eventsOut({ type: "warning", message: "There are no raw resources here. Enter the matching guardian's biome." });
+      this.eventsOut({ type: "warning", message: t("noRawResources", language) });
     } else if (this.resourceManager.hasPickups()) {
-      this.eventsOut({ type: "warning", message: "Too far away. Move closer to a resource and press Space again." });
+      this.eventsOut({ type: "warning", message: t("tooFarResource", language) });
     } else {
-      this.eventsOut({ type: "warning", message: "This biome is harvested for now. Return later and its resources will renew." });
+      this.eventsOut({ type: "warning", message: t("biomeHarvested", language) });
     }
     this.updatePrompt();
   }
@@ -312,6 +365,7 @@ export class GameScene extends Phaser.Scene {
     const evolutionChanged = JSON.stringify(nextSave.snakeEvolutionStatus) !== JSON.stringify(this.save.snakeEvolutionStatus);
     const challengeProgressChanged = JSON.stringify(nextSave.challengeProgress) !== JSON.stringify(this.save.challengeProgress);
     const habitatStatesChanged = JSON.stringify(nextSave.habitatStates) !== JSON.stringify(this.save.habitatStates);
+    const languageChanged = nextSave.settings?.language !== this.save.settings?.language;
     this.save = nextSave;
 
     const area = this.areaManager.current();
@@ -320,6 +374,13 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (snakeChanged || evolutionChanged) this.createSnakeRenderer();
+    if (languageChanged) {
+      const position = { x: this.player.x, y: this.player.y };
+      this.renderArea(area.id, false);
+      this.player.setPosition(position.x, position.y);
+      this.updatePrompt();
+      return;
+    }
     if (upgradesChanged && this.areaManager.currentAreaId === "sanctuary") {
       this.sanctuaryRenderer?.render(this.save.sanctuaryUpgrades, {
         animate: Boolean(addedUpgradeId),
@@ -329,8 +390,9 @@ export class GameScene extends Phaser.Scene {
     if ((habitatStatesChanged || evolutionChanged) && this.habitatRenderer) {
       this.habitatRenderer.sync(this.save.habitatStates, this.save.snakeEvolutionStatus);
     }
-    if (challengeProgressChanged && this.challengeRenderer) {
+    if ((challengeProgressChanged || languageChanged) && this.challengeRenderer) {
       const challenge = this.challengeRenderer.challenge;
+      if (languageChanged) this.challengeRenderer.signature = "";
       this.challengeRenderer.sync(this.save.challengeProgress?.[challenge.id]);
     }
   }

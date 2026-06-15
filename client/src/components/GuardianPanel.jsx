@@ -1,11 +1,13 @@
 import { snakes } from "../data/snakes.js";
+import { abilityName, elementName, t } from "../i18n/localization.js";
 
 export function GuardianPanel({ save, currentAreaId, onSelect, onAbility, onGuide }) {
   const atHome = currentAreaId === "sanctuary";
+  const language = save.settings?.language || "en";
   return (
     <aside className="left-panel panel">
-      <p className="panel-kicker">Guardian party</p>
-      <h2>Choose a snake</h2>
+      <p className="panel-kicker">{t("guardianParty", language)}</p>
+      <h2>{t("chooseSnake", language)}</h2>
       <div className="snake-list">
         {Object.entries(snakes).map(([name, snake]) => {
           const selected = save.selectedSnake === name;
@@ -19,13 +21,16 @@ export function GuardianPanel({ save, currentAreaId, onSelect, onAbility, onGuid
               onClick={() => onSelect(name)}
             >
               <img className="guardian-thumb" src={evolved ? snake.evolvedSprite : snake.sprite} alt="" />
-              <span><strong>{evolved ? snake.evolution : name}</strong><small>{snake.element} &middot; {snake.ability}</small></span>
-              {evolved && <em>EVOLVED</em>}
+              <span>
+                <strong>{evolved ? snake.evolution : name}</strong>
+                <small>{elementName(snake.element, language)} &middot; {abilityName(snake.ability, language)}</small>
+              </span>
+              {evolved && <em>{t("evolved", language)}</em>}
             </button>
           );
         })}
       </div>
-      {!atHome && <p className="party-lock-note">Return to the Sanctuary to change guardians.</p>}
+      {!atHome && <p className="party-lock-note">{t("returnToChange", language)}</p>}
       <button
         className="ability-button"
         style={{
@@ -34,10 +39,10 @@ export function GuardianPanel({ save, currentAreaId, onSelect, onAbility, onGuid
         }}
         onClick={onAbility}
       >
-        Use {snakes[save.selectedSnake].ability}
-        <small>Space key &middot; improved after evolution</small>
+        {t("useAbility", language, { ability: abilityName(snakes[save.selectedSnake].ability, language) })}
+        <small>{t("abilityHint", language)}</small>
       </button>
-      <button className="guide-link" onClick={onGuide}>Open character guide</button>
+      <button className="guide-link" onClick={onGuide}>{t("openGuide", language)}</button>
     </aside>
   );
 }

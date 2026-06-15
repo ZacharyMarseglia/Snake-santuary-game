@@ -1,4 +1,5 @@
 import { SanctuaryEffects } from "./SanctuaryEffects.js";
+import { t } from "../i18n/localization.js";
 
 const ELEMENT_COLORS = [0x55c6e1, 0x8bcce9, 0xb58a58, 0xf07a35, 0xf3d84f, 0xee87ad];
 
@@ -10,6 +11,10 @@ export class SanctuaryRenderer {
     this.graphics = scene.add.graphics().setPosition(offsetX, 0).setDepth(3);
     this.effects = new SanctuaryEffects(scene);
     this.completed = new Set();
+  }
+
+  label(key) {
+    return t(key, this.scene.save.settings?.language || "en");
   }
 
   render(upgrades, options = {}) {
@@ -79,7 +84,7 @@ export class SanctuaryRenderer {
         .moveTo(314, 536).lineTo(327, 519).strokePath();
       this.drawReeds(g, 220, 535, 0x5d5945, true);
       this.drawReeds(g, 365, 552, 0x5d5945, true);
-      this.effects.addLabel(414, 620, "Dry pond", false, "#7d725a");
+      this.effects.addLabel(414, 620, this.label("dryPond"), false, "#7d725a");
       return;
     }
 
@@ -96,7 +101,7 @@ export class SanctuaryRenderer {
     this.drawReeds(g, 214, 525, 0x57924f, false);
     this.drawReeds(g, 368, 545, 0x57924f, false);
     g.lineStyle(4, 0x9eeeff, 0.62).strokeEllipse(294, 548, 230, 130);
-    this.effects.addLabel(414, 620, "Ripplefin Pond", true, "#2589ac");
+    this.effects.addLabel(414, 620, this.label("ripplefinPond"), true, "#2589ac");
   }
 
   drawReeds(g, x, y, color, dead) {
@@ -125,7 +130,7 @@ export class SanctuaryRenderer {
           .moveTo(x + 2, 565).lineTo(x + 12, 558).strokePath();
       }
       g.lineStyle(5, 0x665443).beginPath().moveTo(473, 505).lineTo(466, 484).lineTo(486, 492).strokePath();
-      this.effects.addLabel(660, 626, "Wilted garden", false, "#7d725a");
+      this.effects.addLabel(660, 626, this.label("wiltedGarden"), false, "#7d725a");
       return;
     }
 
@@ -146,7 +151,7 @@ export class SanctuaryRenderer {
       g.fillStyle(0xed8dac).fillCircle(x, y, 7).fillCircle(x + 6, y + 3, 5);
     }
     g.fillStyle(0xf7b6ca, 0.78).fillCircle(475, 486, 4).fillCircle(623, 498, 4);
-    this.effects.addLabel(660, 632, "HeartBloom Garden", true, "#b95078");
+    this.effects.addLabel(660, 632, this.label("heartbloomGarden"), true, "#b95078");
   }
 
   drawFlower(g, x, y, color) {
@@ -176,7 +181,7 @@ export class SanctuaryRenderer {
 
     if (!restored) {
       g.fillStyle(0x66675f).fillCircle(350, 505, 9).fillCircle(474, 489, 7).fillCircle(522, 466, 8);
-      this.effects.addLabel(555, 505, "Broken path", false, "#777064");
+      this.effects.addLabel(555, 505, this.label("brokenPath"), false, "#777064");
       return;
     }
 
@@ -185,7 +190,7 @@ export class SanctuaryRenderer {
     g.lineStyle(3, 0xe8d8ad).beginPath().arc(335, 454, 8, 0, Math.PI * 1.8).strokePath();
     g.fillStyle(0x8edbd5).fillTriangle(536, 399, 543, 383, 550, 399);
     g.fillStyle(0xd9c99f, 0.88).fillCircle(382, 490, 8).fillCircle(455, 484, 6);
-    this.effects.addLabel(555, 505, "Guardian Stoneway", true, "#725335");
+    this.effects.addLabel(555, 505, this.label("guardianStoneway"), true, "#725335");
   }
 
   drawShrine(g, restored) {
@@ -199,7 +204,7 @@ export class SanctuaryRenderer {
         .moveTo(451, 307).lineTo(438, 326).lineTo(447, 350)
         .moveTo(408, 385).lineTo(430, 366).lineTo(454, 391).strokePath();
       g.fillStyle(0x555951).fillRoundedRect(350, 395, 37, 20, 6).fillRoundedRect(474, 405, 42, 18, 6);
-      this.effects.addLabel(550, 430, "Silent shrine", false, "#696b63");
+      this.effects.addLabel(550, 430, this.label("silentShrine"), false, "#696b63");
       return;
     }
 
@@ -214,7 +219,7 @@ export class SanctuaryRenderer {
     g.fillStyle(0x6c5980).fillTriangle(351, 277, 376, 243, 401, 277);
     g.fillTriangle(459, 277, 484, 243, 509, 277);
     g.lineStyle(4, 0xe7cf7b).strokeTriangle(351, 277, 376, 243, 401, 277).strokeTriangle(459, 277, 484, 243, 509, 277);
-    this.effects.addLabel(550, 438, "Elemental Shrine", true, "#72568e");
+    this.effects.addLabel(550, 438, this.label("elementalShrine"), true, "#72568e");
   }
 
   drawLibrary(g, restored) {
@@ -225,7 +230,7 @@ export class SanctuaryRenderer {
         .moveTo(548, 365).lineTo(540, 337)
         .moveTo(625, 367).lineTo(650, 343).strokePath();
       g.fillStyle(0x625849).fillRoundedRect(557, 405, 34, 12, 4).fillRoundedRect(612, 420, 30, 10, 4);
-      this.effects.addLabel(710, 452, "Empty story corner", false, "#756b58");
+      this.effects.addLabel(710, 452, this.label("emptyStoryCorner"), false, "#756b58");
       return;
     }
 
@@ -245,7 +250,7 @@ export class SanctuaryRenderer {
     g.fillStyle(0x855a3f).fillRoundedRect(552, 423, 78, 20, 7);
     g.fillStyle(0xf4e1ad).fillTriangle(560, 425, 590, 418, 590, 440).fillTriangle(590, 418, 622, 425, 590, 440);
     g.lineStyle(2, 0xae784c).beginPath().moveTo(590, 418).lineTo(590, 440).strokePath();
-    this.effects.addLabel(710, 466, "Storybook Library", true, "#76503b");
+    this.effects.addLabel(710, 466, t("storybookLibrary", this.scene.save.settings?.language || "en"), true, "#76503b");
   }
 
   drawStageDetails(g, done) {

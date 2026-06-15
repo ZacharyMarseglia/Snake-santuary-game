@@ -21,7 +21,7 @@ export const upgrades = [
   {
     id: "shrine", guardian: "ZapScale", symbol: "spark", name: "Restore Shrine",
     color: "#f3d84f", softColor: "#fff4b7", focus: { x: 550, y: 335 },
-    story: "Six elemental lights circle the restored shrine. Its center stone shines again, awakening the sanctuary's power of evolution.",
+    story: "Six elemental lights circle the restored shrine. Its center stone shines again, bringing every guardian's color into harmony.",
     cost: { "Storm Battery": 1, "Sky Charm": 1, "Ember Lantern": 1 }
   },
   {

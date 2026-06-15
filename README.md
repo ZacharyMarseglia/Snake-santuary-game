@@ -55,7 +55,7 @@ npm start
 | ZapScale | Lightning | Thunder Blink | Voltcoil |
 | HeartBloom | Nature/love | Healing Bloom | Rosetail |
 
-Evolution unlocks after three sanctuary upgrades including the restored elemental shrine. Evolved guardians are larger, collect from farther away, and recharge abilities faster.
+Each guardian evolves after completing its matching biome restoration challenge and spending one crafted elemental relic at the Sanctuary. Evolution consumes the relic. Evolved guardians are larger, collect from farther away, recharge abilities faster, and gain stronger elemental effects.
 
 ## Features
 
@@ -71,15 +71,17 @@ Evolution unlocks after three sanctuary upgrades including the restored elementa
 - Sanctuary repairs consume crafted relics rather than raw biome resources
 - Renewable biome resource nodes with clear success, range, guardian, biome, cooldown, and missing-material feedback
 - Chrome read-aloud narration for biome stories, crafting stories, and Storybook chapters, queued sentence by sentence with natural pauses, prioritized female English voices, testing, and locally saved voice controls
+- English and Simplified Chinese educational content with a locally saved language setting and language-matched Web Speech voices
 - Element Learning Journal with six guardian-led science pages, facts for every raw resource, biome quizzes with gentle retries, and one-time resource rewards
 - Six nonviolent Element Restoration Challenges with ability-based world objectives, live progress tracking, educational start/success stories, persistent partial progress, and one-time biome rewards
 - Six persistent guardian habitat rooms that awaken after matching biome challenges or sanctuary repairs, with animated elemental decor, guardian portraits, bond progress, evolution status, lore, and science facts
+- Six full-screen narrated evolution chapters with guardian-specific science lessons, relic requirements, elemental animation, and evolved-form reveals
 - Five sanctuary landmarks with dramatically different ruined/restored art, persistent pond/garden/shrine/library animation, and focused upgrade celebrations
 - Five sequential quests, progress display, rewards, and completion popups
 - Guardian-led quest cards and sanctuary repairs with character-specific portraits, colors, and elemental marks
 - First-visit science lessons covering ecosystems, pollination, rivers, clouds, rocks, fire regrowth, and electricity
 - Six selectable guardians with distinct speed and abilities
-- Evolution states persisted independently for every guardian
+- Evolution states persisted independently for every guardian and reflected in gameplay, the Character Guide, party panel, and habitat rooms
 - Automatic server saves plus reset support
 - Responsive menu, game HUD, guide, settings, and unlockable storybook
 - Pause menu, synthesized ambient music, sound effects, volume controls, fullscreen, and reduced-motion support

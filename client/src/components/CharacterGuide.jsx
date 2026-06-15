@@ -1,18 +1,26 @@
 import { useState } from "react";
 import { snakes } from "../data/snakes.js";
+import { evolutionSceneByGuardian } from "../data/evolutionScenes.js";
+import { abilityName, content, elementName, itemName, t } from "../i18n/localization.js";
 
 export function CharacterGuide({ save }) {
   const [selected, setSelected] = useState(save.selectedSnake || "Ripplefin");
   const snake = snakes[selected];
   const evolved = save.snakeEvolutionStatus[selected];
+  const evolutionScene = evolutionSceneByGuardian[selected];
+  const challengeComplete = Boolean(save.challengeProgress?.[evolutionScene.challengeId]?.completed);
+  const craftedCount = save.inventory?.[evolutionScene.craftedItem] || 0;
+  const language = save.settings?.language || "en";
+  const personality = content("snakes", selected, "personality", snake.personality, language);
+  const lesson = content("snakes", selected, "lesson", snake.lesson, language);
 
   return (
     <div className="guide-layout">
-      <nav className="guide-tabs" aria-label="Guardians">
+      <nav className="guide-tabs" aria-label={t("guardiansAria", language)}>
         {Object.entries(snakes).map(([name, definition]) => (
           <button key={name} className={selected === name ? "active" : ""} onClick={() => setSelected(name)}>
             <img src={definition.sprite} alt="" />
-            <span>{name}<small>{definition.element}</small></span>
+            <span>{name}<small>{elementName(definition.element, language)}</small></span>
           </button>
         ))}
       </nav>
@@ -29,21 +37,27 @@ export function CharacterGuide({ save }) {
           <img
             className="guardian-portrait-art"
             src={evolved ? snake.evolvedSprite : snake.sprite}
-            alt={`${evolved ? snake.evolution : selected}, the ${snake.element} guardian`}
+            alt={`${evolved ? snake.evolution : selected}, ${t("elementGuardian", language, { element: elementName(snake.element, language) })}`}
           />
-          <span>{snake.element} guardian</span>
+          <span>{t("elementGuardian", language, { element: elementName(snake.element, language) })}</span>
         </div>
         <div className="guide-copy">
-          <p className="eyebrow">{evolved ? "Evolution discovered" : "Guardian profile"}</p>
+          <p className="eyebrow">{evolved ? t("evolutionDiscovered", language) : t("guardianProfile", language)}</p>
           <h3>{evolved ? snake.evolution : selected}</h3>
-          <p>{snake.personality}</p>
+          <p>{personality}</p>
           <dl>
-            <div><dt>Ability</dt><dd>{snake.ability}</dd></div>
-            <div><dt>Evolution</dt><dd>{snake.evolution}</dd></div>
-            <div><dt>Science note</dt><dd>{snake.lesson}</dd></div>
+            <div><dt>{t("ability", language)}</dt><dd>{abilityName(snake.ability, language)}</dd></div>
+            <div><dt>{t("evolution", language)}</dt><dd>{snake.evolution}</dd></div>
+            <div><dt>{t("scienceNote", language)}</dt><dd>{lesson}</dd></div>
           </dl>
           <div className="guide-status">
-            {evolved ? "Evolved form unlocked" : "Complete 3 sanctuary upgrades to evolve"}
+            {evolved
+              ? t("evolvedFormUnlocked", language)
+              : `${challengeComplete
+                ? t("challengeComplete", language)
+                : t("completeChallenge", language, {
+                  challenge: content("evolutions", selected, "challengeName", evolutionScene.challengeName, language)
+                })} · ${craftedCount}/${evolutionScene.craftedAmount} ${itemName(evolutionScene.craftedItem, language)}`}
           </div>
         </div>
       </section>

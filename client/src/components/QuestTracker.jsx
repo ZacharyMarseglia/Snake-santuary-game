@@ -1,7 +1,11 @@
 import { snakes } from "../data/snakes.js";
+import { content, formatItems, t } from "../i18n/localization.js";
 
-export function QuestTracker({ quest, progress }) {
+export function QuestTracker({ quest, progress, language = "en" }) {
   const guardian = snakes[quest.guardian];
+  const title = content("quests", quest.id, "title", quest.title, language);
+  const text = content("quests", quest.id, "text", quest.text, language);
+  const learning = content("quests", quest.id, "learning", quest.learning, language);
   return (
     <section
       className="quest-tracker"
@@ -10,14 +14,14 @@ export function QuestTracker({ quest, progress }) {
       <div className="quest-guardian">
         <img src={guardian.sprite} alt="" />
         <div>
-          <p className="panel-kicker">Active quest</p>
-          <h2>{quest.title}</h2>
+          <p className="panel-kicker">{t("activeQuest", language)}</p>
+          <h2>{title}</h2>
         </div>
       </div>
-      <p>{quest.text}</p>
-      {quest.learning && <p className="quest-learning"><strong>Guardian lesson:</strong> {quest.learning}</p>}
+      <p>{text}</p>
+      {learning && <p className="quest-learning"><strong>{t("guardianLesson", language)}:</strong> {learning}</p>}
       <div className="progress-track"><span style={{ width: `${(progress / quest.target.count) * 100}%` }} /></div>
-      <small>{progress} / {quest.target.count} &middot; Reward: {Object.entries(quest.reward).map(([name, amount]) => `${amount} ${name}`).join(", ")}</small>
+      <small>{progress} / {quest.target.count} &middot; {t("reward", language)}: {formatItems(quest.reward, language)}</small>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { elementName, itemName, t } from "../i18n/localization.js";
 
 // GRASP Information Expert: resource proximity, ownership, and harvesting live here.
 export class ResourceManager {
@@ -10,13 +11,14 @@ export class ResourceManager {
   }
 
   create() {
+    const language = this.scene.save.settings?.language || "en";
     this.spawns.forEach((item) => {
       const container = this.scene.add.container(item.x, item.y).setDepth(2);
       const glow = this.scene.add.circle(0, 0, 25, item.color, 0.14);
       const shadow = this.scene.add.ellipse(2, 14, 40, 15, 0x263d33, 0.25);
       const shape = this.scene.add.graphics();
       this.drawIcon(shape, item);
-      const label = this.scene.add.text(0, 26, item.name, {
+      const label = this.scene.add.text(0, 26, itemName(item.name, language), {
         fontFamily: "Trebuchet MS",
         fontSize: "12px",
         color: "#263f34",
@@ -58,19 +60,28 @@ export class ResourceManager {
 
   promptNear(x, y, radius, guardianName) {
     const pickup = this.nearest(x, y, radius);
+    const language = this.scene.save.settings?.language || "en";
     if (!pickup) return "";
-    if (pickup.guardian !== guardianName) return `Needs ${article(pickup.element)} ${pickup.element} guardian.`;
-    return `Press Space to harvest ${pickup.name} with ${guardianName}.`;
+    if (pickup.guardian !== guardianName) {
+      return t("needsElementGuardian", language, { element: elementName(capitalize(pickup.element), language) });
+    }
+    return t("harvestPrompt", language, {
+      resource: itemName(pickup.name, language),
+      guardian: guardianName
+    });
   }
 
   harvestNearest(x, y, radius, guardianName) {
     const pickup = this.nearest(x, y, radius);
+    const language = this.scene.save.settings?.language || "en";
     if (!pickup) return { status: "none" };
     if (pickup.guardian !== guardianName) {
       return {
         status: "wrong-guardian",
         item: pickup,
-        message: `Needs ${article(pickup.element)} ${pickup.element} guardian.`
+        message: t("needsElementGuardian", language, {
+          element: elementName(capitalize(pickup.element), language)
+        })
       };
     }
 
@@ -154,6 +165,6 @@ export class ResourceManager {
   }
 }
 
-function article(element) {
-  return /^[aeiou]/i.test(element) ? "an" : "a";
+function capitalize(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
